@@ -1,7 +1,7 @@
 use std::{
     env,
     fs::File,
-    io::{BufRead, BufReader, Read},
+    io::{stdin, BufRead, BufReader, Read},
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -11,6 +11,7 @@ use std::{
 };
 
 use crossbeam_channel::{Receiver, Sender};
+use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use zip::ZipArchive;
 
 fn main() {
@@ -21,6 +22,8 @@ fn main() {
         Some(password) => println!("Password found: {}", password),
         None => println!("Password not found"),
     }
+    println!("按回车键退出...");
+    stdin().read(&mut [0]).unwrap();
 }
 
 pub fn start_password_reader(
@@ -53,6 +56,7 @@ pub fn password_checker(
     receive_password: Receiver<String>,
     stop_signal: Arc<AtomicBool>,
     send_password_found: Sender<String>,
+    progress_bar: ProgressBar,
 ) -> JoinHandle<()> {
     let file = File::open(file_path).expect("File should exist");
     thread::Builder::new()
@@ -79,6 +83,7 @@ pub fn password_checker(
                             Ok(Err(_)) => (),
                             Err(e) => panic!("Unexpected error: {}", e),
                         }
+                        progress_bar.inc(1);
                     }
                     Err(_) => break,
                 }
@@ -90,6 +95,20 @@ pub fn password_checker(
 pub fn password_finder(zip_path: &str, password_list_path: &str, workers: usize) -> Option<String> {
     let zip_file_path = Path::new(zip_path);
     let password_list_file_path = Path::new(password_list_path);
+
+    //设置进度条
+    let progress_bar = ProgressBar::new(0);
+    let progress_style = ProgressStyle::default_bar()
+        .template("[{elapsed_precise}] {wide_bar} {pos}/{len} throughput:{per_sec} (eta:{eta})")
+        .expect("Failed to create progress style");
+    progress_bar.set_style(progress_style);
+    //每两秒刷新终端，避免闪烁
+    let draw_target = ProgressDrawTarget::stdout_with_hz(2);
+    progress_bar.set_draw_target(draw_target);
+    //设置进度条长度为字典大小
+    let file = BufReader::new(File::open(password_list_file_path).expect("Unable to open file"));
+    let total_password_count = file.lines().count();
+    progress_bar.set_length(total_password_count as u64);
 
     let (send_password, receive_password) = crossbeam_channel::bounded(workers * 10_000);
 
@@ -112,6 +131,7 @@ pub fn password_finder(zip_path: &str, password_list_path: &str, workers: usize)
             receive_password.clone(),
             stop_workers_signal.clone(),
             send_password_found.clone(),
+            progress_bar.clone(),
         );
         worker_handles.push(join_handle);
     }
@@ -126,6 +146,7 @@ pub fn password_finder(zip_path: &str, password_list_path: &str, workers: usize)
             for handle in worker_handles {
                 handle.join().unwrap();
             }
+            progress_bar.finish_and_clear();
             Some(password_found)
         }
         Err(_) => None,
