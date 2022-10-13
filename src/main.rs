@@ -18,7 +18,7 @@ use zip::ZipArchive;
 fn main() {
     let zip_path = env::args().nth(1).expect("No zip file provided");
     let dictionary_path = "xato-net-10-million-passwords.txt";
-    let num_cores = available_parallelism().unwrap().get();
+    let num_cores = num_cpus::get_physical();
     println!("Using {} cores", num_cores);
     let workers = max(1, num_cores - 1);
     match password_finder(&zip_path, dictionary_path, workers) {
