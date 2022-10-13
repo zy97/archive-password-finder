@@ -1,6 +1,8 @@
 mod password_finder;
 mod password_reader;
 mod password_worker;
+mod finder_errors;
+mod args;
 
 use std::{
     cmp::max,
