@@ -1,4 +1,5 @@
 use std::{
+    cmp::max,
     env,
     fs::File,
     io::{stdin, BufRead, BufReader, Read},
@@ -7,7 +8,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    thread::{self, JoinHandle},
+    thread::{self, available_parallelism, JoinHandle},
 };
 
 use crossbeam_channel::{Receiver, Sender};
@@ -17,7 +18,9 @@ use zip::ZipArchive;
 fn main() {
     let zip_path = env::args().nth(1).expect("No zip file provided");
     let dictionary_path = "xato-net-10-million-passwords.txt";
-    let workers = 3;
+    let num_cores = available_parallelism().unwrap().get();
+    println!("Using {} cores", num_cores);
+    let workers = max(1, num_cores - 1);
     match password_finder(&zip_path, dictionary_path, workers) {
         Some(password) => println!("Password found: {}", password),
         None => println!("Password not found"),
