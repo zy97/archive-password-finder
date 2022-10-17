@@ -1,7 +1,5 @@
 use crate::finder_errors::FinderError;
 use crate::finder_errors::FinderError::CliArgumentError;
-use crate::password_finder::CharsetChoice;
-use clap::builder::EnumValueParser;
 use clap::{crate_authors, crate_description, crate_name, crate_version, value_parser};
 use clap::{Arg, Command};
 use std::path::Path;
@@ -38,11 +36,11 @@ fn command() -> clap::Command {
         )
         .arg(
             Arg::new("charset")
-                .help("charset to use to generate password")
+                .help("charset to use to generate password: number, lower, upper, special")
                 .long("charset")
                 .short('c')
-                .value_parser(EnumValueParser::<CharsetChoice>::new())
-                .default_value("medium")
+                .value_delimiter(',')
+                .default_value("number")
                 .required(false),
         )
         .arg(
@@ -60,7 +58,7 @@ fn command() -> clap::Command {
                 .help("maximum password length")
                 .long("maxPasswordLen")
                 .num_args(1)
-                .default_value("10")
+                .default_value("8")
                 .required(false),
         )
 }
@@ -68,7 +66,7 @@ fn command() -> clap::Command {
 pub struct Arguments {
     pub input_file: String,
     pub workers: Option<usize>,
-    pub charset: CharsetChoice,
+    pub charset: Vec<String>,
     pub min_password_len: usize,
     pub max_password_len: usize,
     pub password_dictionary: Option<String>,
@@ -94,7 +92,10 @@ pub fn get_args() -> Result<Arguments, FinderError> {
         }
     }
 
-    let charset: CharsetChoice = *matches.get_one("charset").expect("impossible");
+    let charset = matches
+        .get_many::<String>("charset")
+        .unwrap()
+        .collect::<Vec<_>>();
 
     let workers = matches.try_get_one("workers")?;
     if workers == Some(&0) {
@@ -126,7 +127,10 @@ pub fn get_args() -> Result<Arguments, FinderError> {
     Ok(Arguments {
         input_file: input_file.clone(),
         workers: workers.cloned(),
-        charset,
+        charset: charset
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
         min_password_len: *min_password_len,
         max_password_len: *max_password_len,
         password_dictionary: password_dictionary.cloned(),

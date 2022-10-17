@@ -4,7 +4,7 @@ use crate::{
     password_worker::password_checker,
 };
 use crate::{GenPasswords, PasswordFile};
-use clap::{builder::PossibleValue, ValueEnum};
+
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use std::io::{BufRead, BufReader};
 use std::{
@@ -20,30 +20,10 @@ use zip::result::ZipError::UnsupportedArchive;
 pub enum Strategy {
     PasswordFile(PathBuf),
     GenPasswords {
-        charset_choice: CharsetChoice,
+        charset_choice: Vec<String>,
         min_password_len: usize,
         max_password_len: usize,
     },
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum CharsetChoice {
-    Easy,
-    Medium,
-    Hard,
-}
-impl ValueEnum for CharsetChoice {
-    fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Easy, Self::Medium, Self::Hard]
-    }
-
-    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
-        match self {
-            Self::Easy => Some(PossibleValue::new("easy")),
-            Self::Medium => Some(PossibleValue::new("medium")),
-            Self::Hard => Some(PossibleValue::new("hard")),
-        }
-    }
 }
 
 pub fn password_finder(
@@ -90,19 +70,37 @@ pub fn password_finder(
                 ' ', '-', '=', '!', '@', '#', '$', '%', '^', '&', '*', '_', '+', '<', '>', '/',
                 '?', '.', ';', ':', '{', '}',
             ];
-            let charset = match charset_choice {
-                CharsetChoice::Easy => vec![charset_letters, charset_uppercase_letters].concat(),
-                CharsetChoice::Medium => {
-                    vec![charset_letters, charset_uppercase_letters, charset_digits].concat()
-                }
-                CharsetChoice::Hard => vec![
-                    charset_letters,
-                    charset_uppercase_letters,
-                    charset_digits,
-                    charset_punctuations,
-                ]
-                .concat(),
-            };
+            let charset = charset_choice
+                .into_iter()
+                .map(|c| {
+                    if c == "number" {
+                        charset_digits.clone()
+                    } else if c == "upper" {
+                        charset_uppercase_letters.clone()
+                    } else if c == "lower" {
+                        charset_letters.clone()
+                    } else if c == "special" {
+                        charset_punctuations.clone()
+                    } else {
+                        panic!("Invalid charset choice")
+                    }
+                })
+                .flatten()
+                .collect::<Vec<char>>();
+
+            // let charset = match charset_choice {
+            //     CharsetChoice::Easy => vec![charset_letters, charset_uppercase_letters].concat(),
+            //     CharsetChoice::Medium => {
+            //         vec![charset_letters, charset_uppercase_letters, charset_digits].concat()
+            //     }
+            //     CharsetChoice::Hard => vec![
+            //         charset_letters,
+            //         charset_uppercase_letters,
+            //         charset_digits,
+            //         charset_punctuations,
+            //     ]
+            //     .concat(),
+            // };
 
             let mut total_password_count = 0;
             let charset_len = charset.len();

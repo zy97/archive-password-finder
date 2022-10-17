@@ -31,6 +31,15 @@ fn main_result() -> Result<(), FinderError> {
         max_password_len,
         password_dictionary,
     } = get_args()?;
+    let mut charset = charset;
+    charset.retain(|f| vec!["number", "upper", "lower", "special"].contains(&f.as_str()));
+    charset.sort();
+    charset.dedup();
+    if charset.len() == 0 {
+        charset.push("number".to_string());
+    }
+    println!("charset {:?}", charset);
+
     let strategy = match password_dictionary {
         Some(dict_path) => {
             let path = Path::new(&dict_path);
