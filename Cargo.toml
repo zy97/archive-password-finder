@@ -15,4 +15,8 @@ clap = { version = "4.0.14", features = ["cargo"] }
 thiserror = "1.0.37"
 
 [profile.release]
-opt-level = 3
+opt-level = 'z'
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
