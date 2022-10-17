@@ -94,7 +94,7 @@ pub fn get_args() -> Result<Arguments, FinderError> {
         }
     }
 
-    let charset: CharsetChoice = matches.get_one("charset").expect("impossible");
+    let charset: CharsetChoice = *matches.get_one("charset").expect("impossible");
 
     let workers = matches.try_get_one("workers")?;
     if workers == Some(&0) {
@@ -131,4 +131,14 @@ pub fn get_args() -> Result<Arguments, FinderError> {
         max_password_len: *max_password_len,
         password_dictionary: password_dictionary.cloned(),
     })
+}
+
+#[cfg(test)]
+mod argr_tests {
+    use crate::args::command;
+
+    #[test]
+    fn virify_command() {
+        command().debug_assert();
+    }
 }

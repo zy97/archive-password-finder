@@ -1,20 +1,58 @@
+use crate::password_gen::start_password_generation;
+use crate::{
+    finder_errors::FinderError, password_reader::start_password_reader,
+    password_worker::password_checker,
+};
+use crate::{GenPasswords, PasswordFile};
+use clap::{builder::PossibleValue, ValueEnum};
+use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
+use std::io::{BufRead, BufReader};
 use std::{
     fs::File,
-    io::{BufRead, BufReader},
-    path::Path,
+    path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
 };
+use zip::result::ZipError::UnsupportedArchive;
 
-use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
+pub enum Strategy {
+    PasswordFile(PathBuf),
+    GenPasswords {
+        charset_choice: CharsetChoice,
+        min_password_len: usize,
+        max_password_len: usize,
+    },
+}
 
-use crate::{password_reader::start_password_reader, password_worker::password_checker};
+#[derive(Debug, Clone, Copy)]
+pub enum CharsetChoice {
+    Easy,
+    Medium,
+    Hard,
+}
+impl ValueEnum for CharsetChoice {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Easy, Self::Medium, Self::Hard]
+    }
 
-pub fn password_finder(zip_path: &str, password_list_path: &str, workers: usize) -> Option<String> {
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        match self {
+            Self::Easy => Some(PossibleValue::new("easy")),
+            Self::Medium => Some(PossibleValue::new("medium")),
+            Self::Hard => Some(PossibleValue::new("hard")),
+        }
+    }
+}
+
+pub fn password_finder(
+    zip_path: &str,
+    workers: usize,
+    strategy: Strategy,
+) -> Result<Option<String>, FinderError> {
     let zip_file_path = Path::new(zip_path);
-    let password_list_file_path = Path::new(password_list_path);
+    validate_zip(zip_file_path)?;
 
     //设置进度条
     let progress_bar = ProgressBar::new(0);
@@ -25,10 +63,6 @@ pub fn password_finder(zip_path: &str, password_list_path: &str, workers: usize)
     //每两秒刷新终端，避免闪烁
     let draw_target = ProgressDrawTarget::stdout_with_hz(2);
     progress_bar.set_draw_target(draw_target);
-    //设置进度条长度为字典大小
-    let file = BufReader::new(File::open(password_list_file_path).expect("Unable to open file"));
-    let total_password_count = file.lines().count();
-    progress_bar.set_length(total_password_count as u64);
 
     let (send_password, receive_password) = crossbeam_channel::bounded(workers * 10_000);
 
@@ -37,14 +71,79 @@ pub fn password_finder(zip_path: &str, password_list_path: &str, workers: usize)
     let stop_workers_signal = Arc::new(AtomicBool::new(false));
     let stop_gen_signal = Arc::new(AtomicBool::new(false));
 
-    let password_gen_handle = start_password_reader(
-        password_list_file_path.to_path_buf(),
-        send_password,
-        stop_gen_signal.clone(),
-    );
+    let (total_password_count, password_gen_handle) = match strategy {
+        GenPasswords {
+            charset_choice,
+            min_password_len,
+            max_password_len,
+        } => {
+            let charset_letters = vec![
+                'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
+                'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+            ];
+            let charset_uppercase_letters = vec![
+                'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+                'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+            ];
+            let charset_digits = vec!['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+            let charset_punctuations = vec![
+                ' ', '-', '=', '!', '@', '#', '$', '%', '^', '&', '*', '_', '+', '<', '>', '/',
+                '?', '.', ';', ':', '{', '}',
+            ];
+            let charset = match charset_choice {
+                CharsetChoice::Easy => vec![charset_letters, charset_uppercase_letters].concat(),
+                CharsetChoice::Medium => {
+                    vec![charset_letters, charset_uppercase_letters, charset_digits].concat()
+                }
+                CharsetChoice::Hard => vec![
+                    charset_letters,
+                    charset_uppercase_letters,
+                    charset_digits,
+                    charset_punctuations,
+                ]
+                .concat(),
+            };
+
+            let mut total_password_count = 0;
+            let charset_len = charset.len();
+            for i in min_password_len..=max_password_len {
+                total_password_count += charset_len.pow(i as u32);
+            }
+            (
+                total_password_count,
+                start_password_generation(
+                    charset,
+                    min_password_len,
+                    max_password_len,
+                    send_password,
+                    stop_gen_signal.clone(),
+                    progress_bar.clone(),
+                ),
+            )
+        }
+        PasswordFile(password_file_path) => {
+            let file =
+                BufReader::new(File::open(&password_file_path).expect("Unable to open file"));
+            let mut total_password_count = 0;
+            for _ in file.lines() {
+                total_password_count += 1;
+            }
+            progress_bar.println(format!(
+                "Using passwords file reader {:?} with {} lines",
+                password_file_path, total_password_count
+            ));
+            (
+                total_password_count,
+                start_password_reader(password_file_path, send_password, stop_gen_signal.clone()),
+            )
+        }
+    };
+
+    progress_bar.set_length(total_password_count as u64);
 
     let mut worker_handles = Vec::with_capacity(workers);
-    for i in 0..=workers {
+    progress_bar.println(format!("Using {} workers to test passwords", workers));
+    for i in 1..=workers {
         let join_handle = password_checker(
             i,
             zip_file_path,
@@ -60,6 +159,7 @@ pub fn password_finder(zip_path: &str, password_list_path: &str, workers: usize)
 
     match receive_password_found.recv() {
         Ok(password_found) => {
+            progress_bar.println(format!("Password found '{}'", password_found));
             stop_gen_signal.store(true, Ordering::Relaxed);
             password_gen_handle.join().unwrap();
             stop_workers_signal.store(true, Ordering::Relaxed);
@@ -67,8 +167,28 @@ pub fn password_finder(zip_path: &str, password_list_path: &str, workers: usize)
                 handle.join().unwrap();
             }
             progress_bar.finish_and_clear();
-            Some(password_found)
+            Ok(Some(password_found))
         }
-        Err(_) => None,
+        Err(_) => {
+            progress_bar.println("Password not found :(");
+            progress_bar.finish_and_clear();
+            Ok(None)
+        }
+    }
+}
+
+fn validate_zip(file_path: &Path) -> Result<(), FinderError> {
+    let file = File::open(file_path)?;
+    let mut archive = zip::ZipArchive::new(file)?;
+    let zip_result = archive.by_index(0);
+    match zip_result {
+        Ok(_) => Err(FinderError::invalid_zip_error(
+            "the archive is not encrypted".to_string(),
+        )),
+        Err(UnsupportedArchive(msg)) if msg == "Password required to decrypt file" => Ok(()),
+        Err(e) => Err(FinderError::invalid_zip_error(format!(
+            "Unexcepted error: {:?}",
+            e
+        ))),
     }
 }
