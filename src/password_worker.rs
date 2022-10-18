@@ -1,7 +1,5 @@
 use std::{
-    fs::{self, File},
     io::{Cursor, Read},
-    path::Path,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -17,15 +15,13 @@ use zip::ZipArchive;
 
 pub fn password_checker(
     index: usize,
-    file_path: &Path,
+    zip_file: &[u8],
     receive_password: Receiver<String>,
     stop_signal: Arc<AtomicBool>,
     send_password_found: Sender<String>,
     progress_bar: ProgressBar,
 ) -> JoinHandle<()> {
-    let zip_file = fs::read(file_path)
-        .expect(format!("Failed reading the ZIP file: {}", file_path.display()).as_str());
-    let cursor = Cursor::new(zip_file);
+    let cursor = Cursor::new(zip_file.to_vec());
     thread::Builder::new()
         .name(format!("worker-{}", index))
         .spawn(move || {

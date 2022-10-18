@@ -6,7 +6,9 @@ use crate::{
 use crate::{GenPasswords, PasswordFile};
 
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
-use std::io::{BufRead, BufReader};
+use rayon::prelude::{IntoParallelRefIterator, IndexedParallelIterator};
+use std::fs;
+use std::io::{BufRead, BufReader, Cursor};
 use std::{
     fs::File,
     path::{Path, PathBuf},
@@ -31,8 +33,11 @@ pub fn password_finder(
     workers: usize,
     strategy: Strategy,
 ) -> Result<Option<String>, FinderError> {
-    let zip_file_path = Path::new(zip_path);
-    validate_zip(zip_file_path)?;
+    let vvv = vec![1, 2, 3];
+    let zip_path = Path::new(zip_path);
+    let zip_file = fs::read(zip_path)
+        .expect(format!("Failed reading the ZIP file: {}", zip_path.display()).as_str());
+    validate_zip(&zip_file)?;
 
     //设置进度条
     let progress_bar = ProgressBar::new(0);
@@ -144,7 +149,7 @@ pub fn password_finder(
     for i in 1..=workers {
         let join_handle = password_checker(
             i,
-            zip_file_path,
+            &zip_file,
             receive_password.clone(),
             stop_workers_signal.clone(),
             send_password_found.clone(),
@@ -175,9 +180,9 @@ pub fn password_finder(
     }
 }
 
-fn validate_zip(file_path: &Path) -> Result<(), FinderError> {
-    let file = File::open(file_path)?;
-    let mut archive = zip::ZipArchive::new(file)?;
+fn validate_zip(zip_file: &[u8]) -> Result<(), FinderError> {
+    let cursor = Cursor::new(zip_file);
+    let mut archive = zip::ZipArchive::new(cursor)?;
     let zip_result = archive.by_index(0);
     match zip_result {
         Ok(_) => Err(FinderError::invalid_zip_error(
