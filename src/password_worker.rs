@@ -1,6 +1,6 @@
 use std::{
-    fs::File,
-    io::Read,
+    fs::{self, File},
+    io::{Cursor, Read},
     path::Path,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -13,6 +13,8 @@ use crossbeam_channel::{Receiver, Sender};
 use indicatif::ProgressBar;
 use zip::ZipArchive;
 
+// 使用fs::read 读取文件，并用Curosr包裹buffer，并把cursor传给ZipArchive，速度一下冲26w/s到了380w/s
+
 pub fn password_checker(
     index: usize,
     file_path: &Path,
@@ -21,11 +23,13 @@ pub fn password_checker(
     send_password_found: Sender<String>,
     progress_bar: ProgressBar,
 ) -> JoinHandle<()> {
-    let file = File::open(file_path).expect("File should exist");
+    let zip_file = fs::read(file_path)
+        .expect(format!("Failed reading the ZIP file: {}", file_path.display()).as_str());
+    let cursor = Cursor::new(zip_file);
     thread::Builder::new()
         .name(format!("worker-{}", index))
         .spawn(move || {
-            let mut archive = ZipArchive::new(file).expect("Archive validated before-hand");
+            let mut archive = ZipArchive::new(cursor).expect("Archive validated before-hand");
 
             while !stop_signal.load(Ordering::Relaxed) {
                 match receive_password.recv() {
