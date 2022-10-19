@@ -1,24 +1,15 @@
-use crate::password_gen::start_password_generation;
-use crate::{
-    finder_errors::FinderError, password_reader::start_password_reader,
-    password_worker::password_checker,
-};
-use crate::{GenPasswords, PasswordFile};
+use crate::finder_errors::FinderError;
+use crate::password_finder::Strategy::{GenPasswords, PasswordFile};
+use crate::password_gen::PasswordGenWorker;
+use crate::password_reader::PasswordReader;
+use crate::password_worker::password_checker;
+use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use std::fs::{self};
+use std::io::Cursor;
+use std::path::{Path, PathBuf};
 
-use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
-use rayon::prelude::{IntoParallelRefIterator, IndexedParallelIterator};
-use std::fs;
-use std::io::{BufRead, BufReader, Cursor};
-use std::{
-    fs::File,
-    path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-};
 use zip::result::ZipError::UnsupportedArchive;
-
 pub enum Strategy {
     PasswordFile(PathBuf),
     GenPasswords {
@@ -28,35 +19,13 @@ pub enum Strategy {
     },
 }
 
-pub fn password_finder(
-    zip_path: &str,
-    workers: usize,
-    strategy: Strategy,
-) -> Result<Option<String>, FinderError> {
-    let vvv = vec![1, 2, 3];
+pub fn password_finder(zip_path: &str, strategy: Strategy) -> Result<Option<String>, FinderError> {
     let zip_path = Path::new(zip_path);
     let zip_file = fs::read(zip_path)
         .expect(format!("Failed reading the ZIP file: {}", zip_path.display()).as_str());
     validate_zip(&zip_file)?;
 
-    //设置进度条
-    let progress_bar = ProgressBar::new(0);
-    let progress_style = ProgressStyle::default_bar()
-        .template("[{elapsed_precise}] {wide_bar} {pos}/{len} throughput:{per_sec} (eta:{eta})")
-        .expect("Failed to create progress style");
-    progress_bar.set_style(progress_style);
-    //每两秒刷新终端，避免闪烁
-    let draw_target = ProgressDrawTarget::stdout_with_hz(2);
-    progress_bar.set_draw_target(draw_target);
-
-    let (send_password, receive_password) = crossbeam_channel::bounded(workers * 10_000);
-
-    let (send_password_found, receive_password_found) = crossbeam_channel::bounded(1);
-
-    let stop_workers_signal = Arc::new(AtomicBool::new(false));
-    let stop_gen_signal = Arc::new(AtomicBool::new(false));
-
-    let (total_password_count, password_gen_handle) = match strategy {
+    let (total_password_count, passwords) = match strategy {
         GenPasswords {
             charset_choice,
             min_password_len,
@@ -93,91 +62,52 @@ pub fn password_finder(
                 .flatten()
                 .collect::<Vec<char>>();
 
-            // let charset = match charset_choice {
-            //     CharsetChoice::Easy => vec![charset_letters, charset_uppercase_letters].concat(),
-            //     CharsetChoice::Medium => {
-            //         vec![charset_letters, charset_uppercase_letters, charset_digits].concat()
-            //     }
-            //     CharsetChoice::Hard => vec![
-            //         charset_letters,
-            //         charset_uppercase_letters,
-            //         charset_digits,
-            //         charset_punctuations,
-            //     ]
-            //     .concat(),
-            // };
-
             let mut total_password_count = 0;
             let charset_len = charset.len();
             for i in min_password_len..=max_password_len {
                 total_password_count += charset_len.pow(i as u32);
             }
-            (
-                total_password_count,
-                start_password_generation(
-                    charset,
-                    min_password_len,
-                    max_password_len,
-                    send_password,
-                    stop_gen_signal.clone(),
-                    progress_bar.clone(),
-                ),
-            )
+            let PasswordGenWorker =
+                PasswordGenWorker::new(charset, min_password_len, max_password_len);
+            let res = PasswordGenWorker.collect::<Vec<_>>();
+
+            (total_password_count, res)
         }
         PasswordFile(password_file_path) => {
-            let file =
-                BufReader::new(File::open(&password_file_path).expect("Unable to open file"));
-            let mut total_password_count = 0;
-            for _ in file.lines() {
-                total_password_count += 1;
-            }
-            progress_bar.println(format!(
-                "Using passwords file reader {:?} with {} lines",
-                password_file_path, total_password_count
-            ));
-            (
-                total_password_count,
-                start_password_reader(password_file_path, send_password, stop_gen_signal.clone()),
-            )
+            let password_reader = PasswordReader::new(password_file_path);
+            (password_reader.len(), password_reader.lines)
         }
     };
-
-    progress_bar.set_length(total_password_count as u64);
-
-    let mut worker_handles = Vec::with_capacity(workers);
-    progress_bar.println(format!("Using {} workers to test passwords", workers));
-    for i in 1..=workers {
-        let join_handle = password_checker(
-            i,
-            &zip_file,
-            receive_password.clone(),
-            stop_workers_signal.clone(),
-            send_password_found.clone(),
-            progress_bar.clone(),
-        );
-        worker_handles.push(join_handle);
-    }
-
-    drop(send_password_found);
-
-    match receive_password_found.recv() {
-        Ok(password_found) => {
-            progress_bar.println(format!("Password found '{}'", password_found));
-            stop_gen_signal.store(true, Ordering::Relaxed);
-            password_gen_handle.join().unwrap();
-            stop_workers_signal.store(true, Ordering::Relaxed);
-            for handle in worker_handles {
-                handle.join().unwrap();
-            }
-            progress_bar.finish_and_clear();
-            Ok(Some(password_found))
+    //设置进度条 进度条的样式也会影响性能，进度条越简单性能也好，影响比较小
+    let progress_bar = ProgressBar::new(total_password_count as u64)
+        .with_finish(indicatif::ProgressFinish::AndLeave);
+    let progress_style = ProgressStyle::default_bar()
+        .template("[{elapsed_precise}] {spinner} {pos:7}/{len:7} throughput:{per_sec} (eta:{eta})")
+        // .template("[{elapsed_precise}] {wide_bar} {pos:7}/{len:7} throughput:{per_sec} (eta:{eta})")
+        .expect("Failed to create progress style");
+    progress_bar.set_style(progress_style);
+    //每两秒刷新终端，避免闪烁
+    // let draw_target = ProgressDrawTarget::stdout_with_hz(2);
+    // progress_bar.set_draw_target(draw_target);
+    println!("start");
+    let start = std::time::Instant::now();
+    let password = passwords
+        .par_iter()
+        .map(|f| f.as_str())
+        .progress_with(progress_bar)
+        .find_map_any(|password| password_checker(password, &zip_file));
+    let stop = start.elapsed();
+    println!("Duration: {}", stop.as_secs_f64());
+    match password {
+        Some(password) => {
+            println!("Found password: {}", password);
         }
-        Err(_) => {
-            progress_bar.println("Password not found :(");
-            progress_bar.finish_and_clear();
-            Ok(None)
+        None => {
+            println!("Password not found");
         }
     }
+
+    Ok(None)
 }
 
 fn validate_zip(zip_file: &[u8]) -> Result<(), FinderError> {

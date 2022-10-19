@@ -65,7 +65,6 @@ fn command() -> clap::Command {
 
 pub struct Arguments {
     pub input_file: String,
-    pub workers: Option<usize>,
     pub charset: Vec<String>,
     pub min_password_len: usize,
     pub max_password_len: usize,
@@ -97,12 +96,12 @@ pub fn get_args() -> Result<Arguments, FinderError> {
         .unwrap()
         .collect::<Vec<_>>();
 
-    let workers = matches.try_get_one("workers")?;
-    if workers == Some(&0) {
-        return Err(CliArgumentError {
-            message: "'workers' must be positive".to_string(),
-        });
-    }
+    // let workers = matches.try_get_one("workers")?;
+    // if workers == Some(&0) {
+    //     return Err(CliArgumentError {
+    //         message: "'workers' must be positive".to_string(),
+    //     });
+    // }
 
     let min_password_len = matches.get_one("minPasswordLen").expect("impossible");
     if *min_password_len == 0 {
@@ -126,7 +125,6 @@ pub fn get_args() -> Result<Arguments, FinderError> {
 
     Ok(Arguments {
         input_file: input_file.clone(),
-        workers: workers.cloned(),
         charset: charset
             .into_iter()
             .map(|s| s.to_string())

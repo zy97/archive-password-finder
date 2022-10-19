@@ -10,15 +10,14 @@ edition = "2021"
 thiserror = "1.0.37"
 crossbeam-channel = "0.5.6"
 indicatif = { version = "*", features = ["rayon"] }
-num_cpus = "1.13.1"
 zip = "0.6.2"
 clap = { version = "4.0.14", features = ["cargo"] }
 rayon = "1.5.3"
-
+permutator = "0.4.3"
 
 [profile.release]
-opt-level = 'z'
-strip = true
-lto = true
-codegen-units = 1
-panic = "abort"
+# opt-level = 'z'
+# strip = true
+# lto = true
+# codegen-units = 1
+# panic = "abort"

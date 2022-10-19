@@ -24,7 +24,6 @@ fn main() {
 }
 fn main_result() -> Result<(), FinderError> {
     let Arguments {
-        workers,
         input_file,
         charset,
         min_password_len,
@@ -38,8 +37,6 @@ fn main_result() -> Result<(), FinderError> {
     if charset.len() == 0 {
         charset.push("number".to_string());
     }
-    println!("charset {:?}", charset);
-
     let strategy = match password_dictionary {
         Some(dict_path) => {
             let path = Path::new(&dict_path);
@@ -51,7 +48,6 @@ fn main_result() -> Result<(), FinderError> {
             max_password_len,
         },
     };
-    let workers = workers.unwrap_or_else(num_cpus::get_physical);
-    password_finder(&input_file, workers, strategy)?;
+    password_finder(&input_file, strategy)?;
     Ok(())
 }
