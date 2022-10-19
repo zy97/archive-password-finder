@@ -9,136 +9,53 @@ use std::{
 
 use crossbeam_channel::Sender;
 use indicatif::ProgressBar;
+use permutator::{copy::get_cartesian_for, get_cartesian_size};
 
 pub struct PasswordGenWorker {
     charset: Vec<char>,
     min_password_len: usize,
     max_password_len: usize,
-
-    charset_first: char,
-    charset_last: char,
-    charset_len: usize,
-    password: Vec<char>,
-    current_len: usize,
-    current_index: usize,
-    generated_count: i32,
+    total_password_count: usize,
+    current_password_index: usize,
 }
 impl Iterator for PasswordGenWorker {
     type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.password.len() < self.max_password_len + 1 {
-            if self.current_len == self.current_index + 1
-                && !self.password.iter().any(|&c| c != self.charset_last)
-            {
-                // 增加长度并重置字母
-                self.current_index += 1;
-                self.current_len += 1;
-                self.password = Vec::from_iter(repeat(self.charset_first).take(self.current_len));
-
-                let possibilities = self.charset_len.pow(self.current_len as u32);
-                // self.progress_bar.println(format!( "Starting search space for password length {} ({} possibilities) ({} passwords generated so far)",
-                // self.current_len, possibilities, self.generated_count));
-            } else {
-                let current_char = *self.password.get(self.current_index).unwrap();
-                if current_char == self.charset_last {
-                    // 当前字符到达字符集的末尾，重置当前字符并碰撞前面的字符
-                    let at_prev = self
-                        .password
-                        .iter()
-                        .rposition(|&c| c != self.charset_last)
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "Must find something else than {} in {:?}",
-                                self.charset_last, self.password
-                            )
-                        });
-                    let next_prev = if at_prev == self.charset_len - 1 {
-                        *self.charset.get(self.charset_len - 1).unwrap()
-                    } else {
-                        let prev_char = *self.password.get(at_prev).unwrap();
-                        let prev_index_charset =
-                            self.charset.iter().position(|&c| c == prev_char).unwrap();
-                        *self.charset.get(prev_index_charset + 1).unwrap()
-                    };
-                    let mut tmp = Vec::with_capacity(self.current_len);
-                    for (i, x) in self.password.clone().into_iter().enumerate() {
-                        if i == self.current_index {
-                            tmp.push(self.charset_first)
-                        } else if i == at_prev {
-                            tmp.push(next_prev)
-                        } else if x == self.charset_last && i > at_prev {
-                            tmp.push(self.charset_first)
-                        } else {
-                            tmp.push(x);
-                        }
-                    }
-                    self.password = tmp;
-                } else {
-                    // 增加当前字符
-                    let at = self
-                        .charset
-                        .iter()
-                        .position(|&c| c == current_char)
-                        .unwrap();
-                    let next = if at == self.charset_len - 1 {
-                        self.charset_first
-                    } else {
-                        *self.charset.get(at + 1).unwrap()
-                    };
-
-                    //println!("in-place char:{}, index in charset:{}", current_char, at);
-
-                    let mut tmp = Vec::with_capacity(self.current_len);
-                    for (i, x) in self.password.iter().enumerate() {
-                        if i == self.current_index {
-                            tmp.push(next)
-                        } else {
-                            tmp.push(*x);
-                        }
-                    }
-                    self.password = tmp;
+        let current_password_index = self.current_password_index;
+        let total_password_count = self.total_password_count;
+        let mut passwrod_lenth = 0;
+        let mut total = 0;
+        if current_password_index < total_password_count {
+            for i in self.min_password_len..=self.max_password_len {
+                total += get_cartesian_size(self.charset.len(), i);
+                if current_password_index < total {
+                    passwrod_lenth = i;
+                    break;
                 }
             }
-            let to_push = self.password.iter().cloned().collect::<String>();
-            self.generated_count + 1;
-            return Some(to_push);
+            let current_deep_count = get_cartesian_size(self.charset.len(), passwrod_lenth);
+            let current_deep_index = current_password_index - (total - current_deep_count);
+            let res = get_cartesian_for(&self.charset, passwrod_lenth, current_deep_index);
+            self.current_password_index += 1;
+            Some(res.unwrap().iter().collect())
+        } else {
+            None
         }
-        None
     }
 }
 impl PasswordGenWorker {
     pub fn new(charset: Vec<char>, min_password_len: usize, max_password_len: usize) -> Self {
-        let charset_len = charset.len();
-        // progress_bar.println(format!(
-        //     "Generating passwords with length from {} to {} for charset with length {}\n{:?}",
-        //     min_password_len, max_password_len, charset_len, charset,
-        // ));
-        let charset_first = *charset.first().expect("charset non empty");
-        let charset_last = *charset.last().expect("charset non empty");
-        let mut password = if min_password_len == 1 {
-            // progress_bar.println(format!(
-            //     "Starting search space for password length {} ({} possibilities)",
-            //     min_password_len, charset_len
-            // ));
-            vec![charset_first; 1]
-        } else {
-            vec![charset_last; min_password_len - 1]
-        };
-        let mut current_len = password.len();
-        let mut current_index = current_len - 1;
-        let mut generated_count = 0;
-        Self {
-            charset_len,
+        let mut total_count = 0;
+        for i in min_password_len..=max_password_len {
+            total_count += get_cartesian_size(charset.len(), i)
+        }
+        PasswordGenWorker {
             charset,
             min_password_len,
             max_password_len,
-            charset_first,
-            charset_last,
-            password,
-            current_len,
-            current_index,
-            generated_count,
+            total_password_count: total_count,
+            current_password_index: 0,
         }
     }
 }
@@ -347,9 +264,10 @@ mod tests {
             // charset_punctuations,
         ]
         .concat();
-        let generator = PasswordGenWorker::new(charset, 7, 7);
+        let mut generator = PasswordGenWorker::new(charset, 7, 7);
         let res = generator.collect::<Vec<_>>();
         println!("res:{:?}", res.len());
+        // println!("res:{:?}", res.last());
         let stop = start.elapsed();
         println!("Duration: {}", HumanDuration(stop));
     }
