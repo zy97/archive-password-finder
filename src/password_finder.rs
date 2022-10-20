@@ -2,10 +2,10 @@ use crate::finder_errors::FinderError;
 use crate::password_finder::Strategy::{GenPasswords, PasswordFile};
 use crate::password_gen::PasswordGenWorker;
 use crate::password_reader::PasswordReader;
-use crate::password_worker::password_checker;
+
 use crate::ZipPasswordFinder;
-use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
-use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
+use indicatif::{ProgressBar, ProgressStyle};
+
 use std::fs::{self};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
@@ -91,9 +91,9 @@ pub fn password_finder(zip_path: &str, strategy: Strategy) -> Result<Option<Stri
             min_password_len,
             max_password_len,
         } => {
-            let PasswordGenWorker =
+            let password_gen_worker =
                 PasswordGenWorker::new(vec!['a'], min_password_len, max_password_len);
-            Box::new(PasswordGenWorker)
+            Box::new(password_gen_worker)
         }
         PasswordFile(password_file_path) => {
             let password_reader = PasswordReader::new(password_file_path);
@@ -102,8 +102,6 @@ pub fn password_finder(zip_path: &str, strategy: Strategy) -> Result<Option<Stri
     };
 
     let password = password_finder.find_password(&zip_file);
-    // let stop = start.elapsed();
-    // println!("Duration: {}", stop.as_secs_f64());
     match password {
         Some(password) => {
             println!("Found password: {}", password);

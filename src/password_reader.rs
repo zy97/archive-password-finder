@@ -3,11 +3,8 @@ use std::{
     path::PathBuf,
 };
 
-use indicatif::{ParallelProgressIterator, ProgressBar};
-use rayon::{
-    prelude::{ParallelBridge, ParallelIterator},
-    str::ParallelString,
-};
+use indicatif::ParallelProgressIterator;
+use rayon::{prelude::ParallelIterator, str::ParallelString};
 
 use crate::{
     password_finder::create_progress_bar, password_worker::password_checker, ZipPasswordFinder,
@@ -31,13 +28,6 @@ impl PasswordReader {
         }
     }
 }
-
-// impl Iterator for PasswordReader<'_> {
-//     type Item = String;
-//     fn next(&mut self) -> Option<Self::Item> {
-//         self.lines.next().map(|s| s.to_string())
-//     }
-// }
 
 impl ZipPasswordFinder for PasswordReader {
     fn find_password(&self, zip_file: &[u8]) -> Option<String> {
