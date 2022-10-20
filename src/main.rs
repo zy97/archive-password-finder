@@ -8,6 +8,7 @@ use crate::password_finder::password_finder;
 use crate::password_finder::Strategy::{GenPasswords, PasswordFile};
 use args::{get_args, Arguments};
 use finder_errors::FinderError;
+use indicatif::ProgressBar;
 use std::{path::Path, process::exit};
 
 fn main() {
@@ -50,4 +51,7 @@ fn main_result() -> Result<(), FinderError> {
     };
     password_finder(&input_file, strategy)?;
     Ok(())
+}
+pub trait ZipPasswordFinder {
+    fn find_password(&self, zip_file: &[u8]) -> Option<String>;
 }

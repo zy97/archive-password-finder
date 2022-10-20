@@ -11,6 +11,8 @@ use crossbeam_channel::Sender;
 use indicatif::ProgressBar;
 use permutator::{copy::get_cartesian_for, get_cartesian_size};
 
+use crate::ZipPasswordFinder;
+
 pub struct PasswordGenWorker {
     charset: Vec<char>,
     min_password_len: usize,
@@ -57,6 +59,11 @@ impl PasswordGenWorker {
             total_password_count: total_count,
             current_password_index: 0,
         }
+    }
+}
+impl ZipPasswordFinder for PasswordGenWorker {
+    fn find_password(&self, zip_file: &[u8]) -> Option<String> {
+        todo!()
     }
 }
 
