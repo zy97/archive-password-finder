@@ -1,17 +1,13 @@
-use std::{
-    iter::repeat,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    thread::{self, JoinHandle},
+use crate::{
+    password_finder::create_progress_bar, password_worker::password_checker, ZipPasswordFinder,
 };
-
-use crossbeam_channel::Sender;
-use indicatif::ProgressBar;
+use indicatif::MultiProgress;
 use permutator::{copy::get_cartesian_for, get_cartesian_size};
-
-use crate::ZipPasswordFinder;
+use rayon::{join, ThreadPool};
+use std::{
+    thread::{self},
+    time::Duration,
+};
 
 pub struct PasswordGenWorker {
     charset: Vec<char>,
@@ -63,111 +59,67 @@ impl PasswordGenWorker {
 }
 impl ZipPasswordFinder for PasswordGenWorker {
     fn find_password(&self, zip_file: &[u8]) -> Option<String> {
-        todo!()
-    }
-}
-
-pub fn start_password_generation(
-    charset: Vec<char>,
-    min_size: usize,
-    max_size: usize,
-    send_password: Sender<String>,
-    stop_signal: Arc<AtomicBool>,
-    progress_bar: ProgressBar,
-) -> JoinHandle<()> {
-    thread::Builder::new()
-        .name("password-gen".to_string())
-        .spawn(move || {
-            let charset_len = charset.len();
-            progress_bar.println(format!(
-                "Generating passwords with length from {} to {} for charset with length {}\n{:?}",
-                min_size, max_size, charset_len, charset,
-            ));
-            let charset_first = charset.first().expect("charset non empty");
-            let charset_last = charset.last().expect("charset non empty");
-
-            let mut password = if min_size == 1 {
-                progress_bar.println(format!(
-                    "Starting search space for password length {} ({} possibilities)",
-                    min_size, charset_len
-                ));
-                vec![charset_first; 1]
-            } else {
-                vec![charset_last; min_size - 1]
-            };
-            let mut current_len = password.len();
-            let mut current_index = current_len - 1;
-            let mut generated_count = 0;
-
-            while password.len() < max_size + 1 && !stop_signal.load(Ordering::Relaxed) {
-                if current_len == current_index + 1 && !password.iter().any(|&c| c != charset_last)
-                {
-                    // 增加长度并重置字母
-                    current_index += 1;
-                    current_len += 1;
-                    password = Vec::from_iter(repeat(charset_first).take(current_len));
-
-                    let possibilities = charset_len.pow(current_len as u32);
-                    progress_bar.println(format!( "Starting search space for password length {} ({} possibilities) ({} passwords generated so far)",
-                    current_len, possibilities, generated_count));
-                }
-                else{
-                    let current_char = *password.get(current_index).unwrap();
-                    if current_char == charset_last{
-                        // 当前字符到达字符集的末尾，重置当前字符并碰撞前面的字符
-                        let at_prev = password.iter()
-                        .rposition(|&c| c != charset_last)
-                        .unwrap_or_else(|| panic!("Must find something else than {} in {:?}", charset_last, password));
-                        let next_prev = if at_prev == charset_len - 1 {
-                            charset.get(charset_len - 1).unwrap()
-                        } else {
-                            let prev_char = *password.get(at_prev).unwrap();
-                            let prev_index_charset =
-                                charset.iter().position(|c| c == prev_char).unwrap();
-                            charset.get(prev_index_charset + 1).unwrap()
-                        };
-                        let mut tmp = Vec::with_capacity(current_len);
-                        for (i, x) in password.into_iter().enumerate() {
-                            if i == current_index {
-                                tmp.push(charset_first)
-                            } else if i == at_prev {
-                                tmp.push(next_prev)
-                            } else if x == charset_last && i > at_prev {
-                                tmp.push(charset_first)
-                            } else {
-                                tmp.push(x);
-                            }
-                        }
-                        password = tmp;
-                    }
-                    else{
-                        // 增加当前字符
-                        let at = charset.iter().position(|c| c == current_char).unwrap();
-                        let next = if at == charset_len - 1 {
-                            charset_first
-                        } else {
-                            charset.get(at + 1).unwrap()
-                        };
-
-                        //println!("in-place char:{}, index in charset:{}", current_char, at);
-
-                        let mut tmp = Vec::with_capacity(current_len);
-                        for (i, x) in password.iter().enumerate() {
-                            if i == current_index {
-                                tmp.push(next)
-                            } else {
-                                tmp.push(*x);
-                            }
-                        }
-                        password = tmp;
-                    }
-                }
-                let to_push = password.iter().cloned().collect::<String>();
-                generated_count +1;
-                send_password.send(to_push).unwrap();
+        let file = zip_file.to_vec();
+        let multiProgress = MultiProgress::new();
+        let total_password_count = self.total_password_count as u64;
+        let generate_password_bar = multiProgress.add(create_progress_bar(total_password_count));
+        let check_password_bar = multiProgress.add(create_progress_bar(total_password_count));
+        // let mm = multiProgress.clone();
+        let min_password_len = self.min_password_len;
+        let max_password_len = self.max_password_len;
+        let charset = self.charset.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        thread::spawn(move || {
+            let mut current_password_index: usize = 0;
+            let total_password_count: usize = total_password_count as usize;
+            let mut passwrod_lenth = 0;
+            let mut total = 0;
+            for i in min_password_len..=max_password_len {
+                total += get_cartesian_size(charset.len(), i);
             }
-        })
-        .unwrap()
+            loop {
+                if current_password_index < total_password_count {
+                    for i in min_password_len..=max_password_len {
+                        if current_password_index < total {
+                            passwrod_lenth = i;
+                            break;
+                        }
+                    }
+                    let current_deep_count = get_cartesian_size(charset.len(), passwrod_lenth);
+                    let current_deep_index = current_password_index - (total - current_deep_count);
+                    let res = get_cartesian_for(&charset, passwrod_lenth, current_deep_index);
+                    current_password_index += 1;
+                    match res {
+                        Ok(s) => {
+                            let pwd = s.iter().collect::<String>();
+                            match tx.send(pwd) {
+                                Ok(_) => generate_password_bar.inc(1),
+                                Err(_) => println!("Error!!!!"),
+                            }
+                            generate_password_bar.inc(1);
+                        }
+                        Err(e) => panic!("{}", e),
+                    }
+                } else {
+                    break;
+                }
+            }
+        });
+
+        loop {
+            match rx.recv() {
+                Ok(password) => {
+                    check_password_bar.inc(1);
+                    let password = password_checker(&password, &file);
+                    match password {
+                        Some(p) => return Some(p.to_string()),
+                        _ => {}
+                    }
+                }
+                Err(e) => return None,
+            }
+        }
+    }
 }
 #[cfg(test)]
 mod tests {
