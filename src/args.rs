@@ -44,6 +44,13 @@ fn command() -> clap::Command {
                 .required(false),
         )
         .arg(
+            Arg::new("customCharset")
+                .help("charset to use to generate password")
+                .long("customCharset")
+                .value_delimiter(',')
+                .required(false),
+        )
+        .arg(
             Arg::new("minPasswordLen")
                 .value_parser(value_parser!(usize))
                 .help("minimum password length")
@@ -69,6 +76,7 @@ pub struct Arguments {
     pub min_password_len: usize,
     pub max_password_len: usize,
     pub password_dictionary: Option<String>,
+    pub custom_chars: Vec<char>,
 }
 
 pub fn get_args() -> Result<Arguments, FinderError> {
@@ -96,12 +104,16 @@ pub fn get_args() -> Result<Arguments, FinderError> {
         .unwrap()
         .collect::<Vec<_>>();
 
-    // let workers = matches.try_get_one("workers")?;
-    // if workers == Some(&0) {
-    //     return Err(CliArgumentError {
-    //         message: "'workers' must be positive".to_string(),
-    //     });
-    // }
+    let custom_chars = match matches.try_get_many::<String>("customCharset") {
+        Ok(Some(v)) => v
+            .collect::<Vec<_>>()
+            .into_iter()
+            .filter(|f| f.len() == 1)
+            .map(|f| f.chars().next().unwrap())
+            .collect::<Vec<_>>(),
+
+        _ => vec![],
+    };
 
     let min_password_len = matches.get_one("minPasswordLen").expect("impossible");
     if *min_password_len == 0 {
@@ -132,6 +144,7 @@ pub fn get_args() -> Result<Arguments, FinderError> {
         min_password_len: *min_password_len,
         max_password_len: *max_password_len,
         password_dictionary: password_dictionary.cloned(),
+        custom_chars,
     })
 }
 

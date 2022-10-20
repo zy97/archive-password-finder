@@ -30,6 +30,7 @@ fn main_result() -> Result<(), FinderError> {
         min_password_len,
         max_password_len,
         password_dictionary,
+        custom_chars,
     } = get_args()?;
     let mut charset = charset;
     charset.retain(|f| vec!["number", "upper", "lower", "special"].contains(&f.as_str()));
@@ -47,6 +48,7 @@ fn main_result() -> Result<(), FinderError> {
             charset_choice: charset,
             min_password_len,
             max_password_len,
+            custom_chars,
         },
     };
     password_finder(&input_file, strategy)?;

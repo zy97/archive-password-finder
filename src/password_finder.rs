@@ -6,6 +6,7 @@ use crate::password_reader::PasswordReader;
 use crate::ZipPasswordFinder;
 use indicatif::{ProgressBar, ProgressStyle};
 
+use std::collections::HashSet;
 use std::fs::{self};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
@@ -17,6 +18,7 @@ pub enum Strategy {
         charset_choice: Vec<String>,
         min_password_len: usize,
         max_password_len: usize,
+        custom_chars: Vec<char>,
     },
 }
 
@@ -90,6 +92,7 @@ pub fn password_finder(zip_path: &str, strategy: Strategy) -> Result<Option<Stri
             charset_choice,
             min_password_len,
             max_password_len,
+            custom_chars,
         } => {
             let charset_letters = vec![
                 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
@@ -104,7 +107,7 @@ pub fn password_finder(zip_path: &str, strategy: Strategy) -> Result<Option<Stri
                 ' ', '-', '=', '!', '@', '#', '$', '%', '^', '&', '*', '_', '+', '<', '>', '/',
                 '?', '.', ';', ':', '{', '}',
             ];
-            let charset = charset_choice
+            let mut charset = charset_choice
                 .into_iter()
                 .map(|c| {
                     if c == "number" {
@@ -121,7 +124,11 @@ pub fn password_finder(zip_path: &str, strategy: Strategy) -> Result<Option<Stri
                 })
                 .flatten()
                 .collect::<Vec<char>>();
-
+            for c in custom_chars {
+                if !charset.contains(&c) {
+                    charset.push(c);
+                }
+            }
             // let mut total_password_count = 0;
             // let charset_len = charset.len();
             // for i in min_password_len..=max_password_len {
