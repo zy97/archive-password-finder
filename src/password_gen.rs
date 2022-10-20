@@ -69,40 +69,35 @@ impl ZipPasswordFinder for PasswordGenWorker {
         let min_password_len = self.min_password_len;
         let max_password_len = self.max_password_len;
         let charset = self.charset.clone();
-        let (tx, rx) = bounded(1000);
+        let (tx, rx) = bounded(1000_0000);
         thread::spawn(move || {
             let mut current_password_index: usize = 0;
-            let total_password_count: usize = total_password_count as usize;
-            let mut passwrod_lenth = 0;
-            let mut total = 0;
-            for i in min_password_len..=max_password_len {
-                total += get_cartesian_size(charset.len(), i);
-            }
+            let mut passwrod_lenth = min_password_len;
+
             loop {
-                if current_password_index < total_password_count {
-                    for i in min_password_len..=max_password_len {
-                        if current_password_index < total {
-                            passwrod_lenth = i;
-                            break;
+                let res = get_cartesian_for(&charset, passwrod_lenth, current_password_index);
+                match res {
+                    Ok(s) => {
+                        let pwd = s.iter().collect::<String>();
+                        match tx.send(pwd) {
+                            Ok(_) => {}
+                            Err(_) => println!("Error!!!!"),
                         }
-                    }
-                    let current_deep_count = get_cartesian_size(charset.len(), passwrod_lenth);
-                    let current_deep_index = current_password_index - (total - current_deep_count);
-                    let res = get_cartesian_for(&charset, passwrod_lenth, current_deep_index);
-                    current_password_index += 1;
-                    match res {
-                        Ok(s) => {
-                            let pwd = s.iter().collect::<String>();
-                            match tx.send(pwd) {
-                                Ok(_) => generate_password_bar.inc(1),
-                                Err(_) => println!("Error!!!!"),
+                        generate_password_bar.inc(1);
+                        let current_deep_password_count =
+                            get_cartesian_size(charset.len(), passwrod_lenth);
+                        if current_password_index == current_deep_password_count - 1 {
+                            if passwrod_lenth == max_password_len {
+                                return;
+                            } else {
+                                passwrod_lenth += 1;
+                                current_password_index = 0;
                             }
-                            generate_password_bar.inc(1);
+                        } else {
+                            current_password_index += 1;
                         }
-                        Err(e) => panic!("{}", e),
                     }
-                } else {
-                    break;
+                    Err(e) => panic!("{}", e),
                 }
             }
         });
