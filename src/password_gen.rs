@@ -1,6 +1,7 @@
 use crate::{
     password_finder::create_progress_bar, password_worker::password_checker, ZipPasswordFinder,
 };
+use crossbeam_channel::bounded;
 use indicatif::MultiProgress;
 use permutator::{copy::get_cartesian_for, get_cartesian_size};
 use rayon::{join, ThreadPool};
@@ -68,7 +69,7 @@ impl ZipPasswordFinder for PasswordGenWorker {
         let min_password_len = self.min_password_len;
         let max_password_len = self.max_password_len;
         let charset = self.charset.clone();
-        let (tx, rx) = std::sync::mpsc::channel();
+        let (tx, rx) = bounded(1000);
         thread::spawn(move || {
             let mut current_password_index: usize = 0;
             let total_password_count: usize = total_password_count as usize;
@@ -119,6 +120,7 @@ impl ZipPasswordFinder for PasswordGenWorker {
                 Err(e) => return None,
             }
         }
+        Some("".to_string())
     }
 }
 #[cfg(test)]
