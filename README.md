@@ -1,6 +1,7 @@
 # 参考
 
 处于学习的目的，参考项目：https://github.com/agourlay/zip-password-finder
+字典地址：https://github.com/danielmiessler/SecLists/tree/master/Passwords
 
 ## 硬件
 
