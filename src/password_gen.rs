@@ -2,9 +2,13 @@ use crate::{
     password_finder::create_progress_bar, password_worker::password_checker, ZipPasswordFinder,
 };
 use crossbeam_channel::bounded;
-use indicatif::MultiProgress;
+use indicatif::{MultiProgress, ParallelProgressIterator};
 use permutator::{copy::get_cartesian_for, get_cartesian_size};
-use rayon::{join, ThreadPool};
+use rayon::{
+    join,
+    prelude::{IntoParallelIterator, ParallelIterator},
+    ThreadPool,
+};
 use std::{
     thread::{self},
     time::Duration,
@@ -62,60 +66,90 @@ impl ZipPasswordFinder for PasswordGenWorker {
     fn find_password(&self, zip_file: &[u8]) -> Option<String> {
         let file = zip_file.to_vec();
         let multiProgress = MultiProgress::new();
-        let total_password_count = self.total_password_count as u64;
-        let generate_password_bar = multiProgress.add(create_progress_bar(total_password_count));
-        let check_password_bar = multiProgress.add(create_progress_bar(total_password_count));
-        // let mm = multiProgress.clone();
+        let progress_bar = create_progress_bar(self.total_password_count as u64);
+        let total_password_count = self.total_password_count;
         let min_password_len = self.min_password_len;
         let max_password_len = self.max_password_len;
         let charset = self.charset.clone();
-        let (tx, rx) = bounded(1000_0000);
-        thread::spawn(move || {
-            let mut current_password_index: usize = 0;
-            let mut passwrod_lenth = min_password_len;
-
-            loop {
-                let res = get_cartesian_for(&charset, passwrod_lenth, current_password_index);
-                match res {
-                    Ok(s) => {
-                        let pwd = s.iter().collect::<String>();
-                        match tx.send(pwd) {
-                            Ok(_) => {}
-                            Err(_) => println!("Error!!!!"),
-                        }
-                        generate_password_bar.inc(1);
-                        let current_deep_password_count =
-                            get_cartesian_size(charset.len(), passwrod_lenth);
-                        if current_password_index == current_deep_password_count - 1 {
-                            if passwrod_lenth == max_password_len {
-                                return;
-                            } else {
-                                passwrod_lenth += 1;
-                                current_password_index = 0;
-                            }
-                        } else {
-                            current_password_index += 1;
-                        }
-                    }
-                    Err(e) => panic!("{}", e),
-                }
-            }
-        });
-
-        loop {
-            match rx.recv() {
-                Ok(password) => {
-                    check_password_bar.inc(1);
-                    let password = password_checker(&password, &file);
-                    match password {
-                        Some(p) => return Some(p.to_string()),
-                        _ => {}
+        (0..total_password_count)
+            .into_par_iter()
+            .progress_with(progress_bar)
+            .find_map_any(|index| {
+                let mut password_len = min_password_len;
+                let mut total = 0;
+                for i in min_password_len..=max_password_len {
+                    total += get_cartesian_size(charset.len(), password_len);
+                    if index < total {
+                        break;
+                    } else {
+                        password_len += 1;
                     }
                 }
-                Err(e) => return None,
-            }
-        }
-        Some("".to_string())
+                let current_deep_count = get_cartesian_size(charset.len(), password_len);
+                let current_deep_index = index - (total - current_deep_count);
+                // println!(
+                //     "password_len------current_deep_index: {}------{}",
+                //     password_len, current_deep_index
+                // );
+                let password: String =
+                    get_cartesian_for(&charset, password_len, current_deep_index)
+                        .unwrap()
+                        .iter()
+                        .collect();
+                password_checker(&password, zip_file).map(|f| f.to_string())
+            })
+
+        // let generate_password_bar = multiProgress.add(create_progress_bar(total_password_count));
+        // let check_password_bar = multiProgress.add(create_progress_bar(total_password_count));
+        // // let mm = multiProgress.clone();
+
+        // let (tx, rx) = bounded(1000_0000);
+        // thread::spawn(move || {
+        //     let mut current_password_index: usize = 0;
+        //     let mut passwrod_lenth = min_password_len;
+
+        //     loop {
+        //         let res = get_cartesian_for(&charset, passwrod_lenth, current_password_index);
+        //         match res {
+        //             Ok(s) => {
+        //                 let pwd = s.iter().collect::<String>();
+        //                 match tx.send(pwd) {
+        //                     Ok(_) => {}
+        //                     Err(_) => println!("Error!!!!"),
+        //                 }
+        //                 generate_password_bar.inc(1);
+        //                 let current_deep_password_count =
+        //                     get_cartesian_size(charset.len(), passwrod_lenth);
+        //                 if current_password_index == current_deep_password_count - 1 {
+        //                     if passwrod_lenth == max_password_len {
+        //                         return;
+        //                     } else {
+        //                         passwrod_lenth += 1;
+        //                         current_password_index = 0;
+        //                     }
+        //                 } else {
+        //                     current_password_index += 1;
+        //                 }
+        //             }
+        //             Err(e) => panic!("{}", e),
+        //         }
+        //     }
+        // });
+
+        // loop {
+        //     match rx.recv() {
+        //         Ok(password) => {
+        //             check_password_bar.inc(1);
+        //             let password = password_checker(&password, &file);
+        //             match password {
+        //                 Some(p) => return Some(p.to_string()),
+        //                 _ => {}
+        //             }
+        //         }
+        //         Err(e) => return None,
+        //     }
+        // }
+        // Some("".to_string())
     }
 }
 #[cfg(test)]
@@ -134,6 +168,11 @@ mod tests {
     #[test]
     fn test_password_gen() {
         let start = std::time::Instant::now();
+        let dfs = (0..10);
+        println!("dfs: {:?}", dfs.len());
+        for i in dfs {
+            println!("i: {}", i);
+        }
         let charset_letters = vec![
             'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q',
             'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
