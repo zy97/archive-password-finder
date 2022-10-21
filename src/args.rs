@@ -43,13 +43,13 @@ fn command() -> clap::Command {
                 .default_value("number")
                 .required(false),
         )
-        .arg(
-            Arg::new("customCharset")
-                .help("charset to use to generate password")
-                .long("customCharset")
-                .value_delimiter(',')
-                .required(false),
-        )
+        // .arg(
+        //     Arg::new("customCharset")
+        //         .help("charset to use to generate password")
+        //         .long("customCharset")
+        //         .value_delimiter(',')
+        //         .required(false),
+        // )
         .arg(
             Arg::new("minPasswordLen")
                 .value_parser(value_parser!(usize))
