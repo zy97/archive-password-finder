@@ -4,10 +4,13 @@ use std::{
 };
 
 use indicatif::ParallelProgressIterator;
+use infer::MatcherType;
 use rayon::{prelude::ParallelIterator, str::ParallelString};
 
 use crate::{
-    password_finder::create_progress_bar, password_worker::password_checker, ZipPasswordFinder,
+    password_finder::create_progress_bar,
+    password_worker::{password_checker, rar_password_checker},
+    PasswordFinder,
 };
 
 pub struct PasswordReader {
@@ -29,14 +32,28 @@ impl PasswordReader {
     }
 }
 
-impl ZipPasswordFinder for PasswordReader {
-    fn find_password(&self, zip_file: &[u8]) -> Option<String> {
+impl PasswordFinder for PasswordReader {
+    fn find_password(&self, compressed_file: PathBuf) -> Option<String> {
+        let kind = infer::get_from_path(&compressed_file).unwrap();
+        let zip_file = fs::read(&compressed_file)
+            .expect(format!("Failed reading the ZIP file: {}", compressed_file.display()).as_str());
         let progress_bar = create_progress_bar(self.total_password_count as u64);
-        self.passwords_lines
-            .par_lines()
-            .progress_with(progress_bar)
-            .find_map_any(|password| password_checker(password, zip_file))
-            .map(|f| f.to_string())
+        let pbi = self.passwords_lines.par_lines().progress_with(progress_bar);
+        match kind {
+            Some(archive) if archive.mime_type() == "application/vnd.rar" => {
+                return pbi
+                    .find_map_any(|password| {
+                        rar_password_checker(password, compressed_file.display().to_string())
+                    })
+                    .map(|f| f.to_string());
+            }
+            Some(archive) if archive.mime_type() == "application/zip" => {
+                return pbi
+                    .find_map_any(|password| password_checker(password, &zip_file))
+                    .map(|f| f.to_string());
+            }
+            _ => None,
+        }
     }
 }
 

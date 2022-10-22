@@ -1,5 +1,7 @@
 use crate::{
-    password_finder::create_progress_bar, password_worker::password_checker, ZipPasswordFinder,
+    password_finder::create_progress_bar,
+    password_worker::{password_checker, rar_password_checker},
+    PasswordFinder,
 };
 use crossbeam_channel::bounded;
 use indicatif::{MultiProgress, ParallelProgressIterator};
@@ -10,6 +12,8 @@ use rayon::{
     ThreadPool,
 };
 use std::{
+    fs,
+    path::PathBuf,
     thread::{self},
     time::Duration,
 };
@@ -62,9 +66,11 @@ impl PasswordGenWorker {
         }
     }
 }
-impl ZipPasswordFinder for PasswordGenWorker {
-    fn find_password(&self, zip_file: &[u8]) -> Option<String> {
-        let file = zip_file.to_vec();
+impl PasswordFinder for PasswordGenWorker {
+    fn find_password(&self, compressed_file: PathBuf) -> Option<String> {
+        let kind = infer::get_from_path(&compressed_file).unwrap();
+        let zip_file = fs::read(&compressed_file)
+            .expect(format!("Failed reading the ZIP file: {}", compressed_file.display()).as_str());
         let multiProgress = MultiProgress::new();
         let progress_bar = create_progress_bar(self.total_password_count as u64);
         let total_password_count = self.total_password_count;
@@ -87,69 +93,23 @@ impl ZipPasswordFinder for PasswordGenWorker {
                 }
                 let current_deep_count = get_cartesian_size(charset.len(), password_len);
                 let current_deep_index = index - (total - current_deep_count);
-                // println!(
-                //     "password_len------current_deep_index: {}------{}",
-                //     password_len, current_deep_index
-                // );
                 let password: String =
                     get_cartesian_for(&charset, password_len, current_deep_index)
                         .unwrap()
                         .iter()
                         .collect();
-                password_checker(&password, zip_file).map(|f| f.to_string())
+
+                match kind {
+                    Some(archive) if archive.mime_type() == "application/vnd.rar" => {
+                        rar_password_checker(&password, compressed_file.display().to_string())
+                            .map(|f| f.to_string())
+                    }
+                    Some(archive) if archive.mime_type() == "application/zip" => {
+                        password_checker(&password, &zip_file).map(|f| f.to_string())
+                    }
+                    _ => None,
+                }
             })
-
-        // let generate_password_bar = multiProgress.add(create_progress_bar(total_password_count));
-        // let check_password_bar = multiProgress.add(create_progress_bar(total_password_count));
-        // // let mm = multiProgress.clone();
-
-        // let (tx, rx) = bounded(1000_0000);
-        // thread::spawn(move || {
-        //     let mut current_password_index: usize = 0;
-        //     let mut passwrod_lenth = min_password_len;
-
-        //     loop {
-        //         let res = get_cartesian_for(&charset, passwrod_lenth, current_password_index);
-        //         match res {
-        //             Ok(s) => {
-        //                 let pwd = s.iter().collect::<String>();
-        //                 match tx.send(pwd) {
-        //                     Ok(_) => {}
-        //                     Err(_) => println!("Error!!!!"),
-        //                 }
-        //                 generate_password_bar.inc(1);
-        //                 let current_deep_password_count =
-        //                     get_cartesian_size(charset.len(), passwrod_lenth);
-        //                 if current_password_index == current_deep_password_count - 1 {
-        //                     if passwrod_lenth == max_password_len {
-        //                         return;
-        //                     } else {
-        //                         passwrod_lenth += 1;
-        //                         current_password_index = 0;
-        //                     }
-        //                 } else {
-        //                     current_password_index += 1;
-        //                 }
-        //             }
-        //             Err(e) => panic!("{}", e),
-        //         }
-        //     }
-        // });
-
-        // loop {
-        //     match rx.recv() {
-        //         Ok(password) => {
-        //             check_password_bar.inc(1);
-        //             let password = password_checker(&password, &file);
-        //             match password {
-        //                 Some(p) => return Some(p.to_string()),
-        //                 _ => {}
-        //             }
-        //         }
-        //         Err(e) => return None,
-        //     }
-        // }
-        // Some("".to_string())
     }
 }
 #[cfg(test)]

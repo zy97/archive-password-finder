@@ -24,3 +24,36 @@ pub fn password_checker<'a>(password: &'a str, zip_file: &[u8]) -> Option<&'a st
         _ => None,
     }
 }
+pub fn rar_password_checker<'a>(password: &'a str, rar_file_path: String) -> Option<&'a str> {
+    let archive = unrar::Archive::with_password(rar_file_path, password.to_string());
+    let mut open_archive = archive.test().unwrap();
+    if open_archive.process().is_ok() {
+        Some(password)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::path::Path;
+
+    #[test]
+    fn test() {
+        let archive = unrar::Archive::with_password("test.rar".into(), "123456".to_string());
+        // let archive = unrar::Archive::new("test.rar".into());
+        // let mut sd = archive
+        //     .open(
+        //         unrar::archive::OpenMode::Extract,
+        //         Some("()".to_string()),
+        //         unrar::archive::Operation::Extract,
+        //     )
+        //     .unwrap();
+        let mut sd = archive.test().unwrap();
+        sd.process().unwrap();
+        println!("111:{:?}", sd);
+        // for entry in archive.list().unwrap() {
+        //     println!("{}", entry.unwrap());
+        // }
+    }
+}
