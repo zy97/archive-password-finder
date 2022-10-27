@@ -1,6 +1,6 @@
 use crate::{
     password_finder::create_progress_bar,
-    password_worker::{password_checker, rar_password_checker},
+    password_worker::{password_checker, rar_password_checker, sevenz_password_checker},
     PasswordFinder,
 };
 use crossbeam_channel::bounded;
@@ -102,6 +102,10 @@ impl PasswordFinder for PasswordGenWorker {
                 match kind {
                     Some(archive) if archive.mime_type() == "application/vnd.rar" => {
                         rar_password_checker(&password, compressed_file.display().to_string())
+                            .map(|f| f.to_string())
+                    }
+                    Some(archive) if archive.mime_type() == "application/x-7z-compressed" => {
+                        sevenz_password_checker(&password, compressed_file.display().to_string())
                             .map(|f| f.to_string())
                     }
                     Some(archive) if archive.mime_type() == "application/zip" => {

@@ -1,4 +1,7 @@
-use std::io::{Cursor, Read};
+use std::{
+    io::{Cursor, Read},
+    process::Command,
+};
 use zip::ZipArchive;
 
 // 使用fs::read 读取文件，并用Curosr包裹buffer，并把cursor传给ZipArchive，速度一下冲26w/s到了380w/s
@@ -33,27 +36,34 @@ pub fn rar_password_checker<'a>(password: &'a str, rar_file_path: String) -> Opt
         None
     }
 }
+pub fn sevenz_password_checker<'a>(password: &'a str, rar_file_path: String) -> Option<&'a str> {
+    let mut command = Command::new(r".\7z.exe");
+    command.arg("t");
+    command.arg(rar_file_path);
+    command.arg(format!("-p{}", password));
+    let output = command.output().unwrap();
+    match output.status.code() {
+        Some(0) => Some(password),
+        _ => None,
+    }
+}
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
+    use std::{path::Path, process::Command, time::Instant};
 
     #[test]
     fn test() {
-        let archive = unrar::Archive::with_password("test.rar".into(), "123456".to_string());
-        // let archive = unrar::Archive::new("test.rar".into());
-        // let mut sd = archive
-        //     .open(
-        //         unrar::archive::OpenMode::Extract,
-        //         Some("()".to_string()),
-        //         unrar::archive::Operation::Extract,
-        //     )
-        //     .unwrap();
-        let mut sd = archive.test().unwrap();
-        sd.process().unwrap();
-        println!("111:{:?}", sd);
-        // for entry in archive.list().unwrap() {
-        //     println!("{}", entry.unwrap());
-        // }
+        let now = Instant::now();
+        let zip = "test1.7z";
+        let mut command = Command::new(r".\7z.exe");
+        command.arg("t");
+        command.arg(zip);
+        // command.arg(format!("-p{}", "123456"));
+        let output = command.output().unwrap();
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        println!("stdout: {}", stdout);
+        println!("code : {}", output.status.code().unwrap());
+        println!("time: {:?}", now.elapsed());
     }
 }
