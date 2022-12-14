@@ -8,7 +8,6 @@ use crate::password_finder::password_finder;
 use crate::password_finder::Strategy::{GenPasswords, PasswordFile};
 use args::{get_args, Arguments};
 use finder_errors::FinderError;
-use indicatif::ProgressBar;
 use std::path::PathBuf;
 use std::{path::Path, process::exit};
 

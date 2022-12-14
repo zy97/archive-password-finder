@@ -4,7 +4,6 @@ use std::{
 };
 
 use indicatif::ParallelProgressIterator;
-use infer::MatcherType;
 use rayon::{prelude::ParallelIterator, str::ParallelString};
 
 use crate::{

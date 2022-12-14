@@ -2,16 +2,10 @@ use crate::finder_errors::FinderError;
 use crate::password_finder::Strategy::{GenPasswords, PasswordFile};
 use crate::password_gen::PasswordGenWorker;
 use crate::password_reader::PasswordReader;
-
 use crate::PasswordFinder;
 use indicatif::{ProgressBar, ProgressStyle};
-
-use std::collections::HashSet;
-use std::fs::{self};
-use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
-use zip::result::ZipError::UnsupportedArchive;
 pub enum Strategy {
     PasswordFile(PathBuf),
     GenPasswords {
@@ -24,9 +18,6 @@ pub enum Strategy {
 
 pub fn password_finder(zip_path: &str, strategy: Strategy) -> Result<Option<String>, FinderError> {
     let zip_path = Path::new(zip_path);
-    let zip_file = fs::read(zip_path)
-        .expect(format!("Failed reading the ZIP file: {}", zip_path.display()).as_str());
-    // validate_zip(&zip_file)?;
 
     let password_finder: Box<dyn PasswordFinder> = match strategy {
         GenPasswords {
@@ -108,20 +99,4 @@ pub fn create_progress_bar(len: u64) -> ProgressBar {
     // let draw_target = ProgressDrawTarget::stdout_with_hz(2);
     // progress_bar.set_draw_target(draw_target);
     progress_bar
-}
-
-fn validate_zip(zip_file: &[u8]) -> Result<(), FinderError> {
-    let cursor = Cursor::new(zip_file);
-    let mut archive = zip::ZipArchive::new(cursor)?;
-    let zip_result = archive.by_index(0);
-    match zip_result {
-        Ok(_) => Err(FinderError::invalid_zip_error(
-            "the archive is not encrypted".to_string(),
-        )),
-        Err(UnsupportedArchive(msg)) if msg == "Password required to decrypt file" => Ok(()),
-        Err(e) => Err(FinderError::invalid_zip_error(format!(
-            "Unexcepted error: {:?}",
-            e
-        ))),
-    }
 }

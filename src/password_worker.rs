@@ -36,7 +36,6 @@ pub fn rar_password_checker<'a>(password: &'a str, rar_file_path: String) -> Opt
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
 
     #[test]
     fn test() {
