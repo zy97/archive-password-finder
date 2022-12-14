@@ -8,7 +8,7 @@ use rayon::{prelude::ParallelIterator, str::ParallelString};
 
 use crate::{
     password_finder::create_progress_bar,
-    password_worker::{password_checker, rar_password_checker},
+    password_worker::{password_checker, rar_password_checker, sevenz_password_checker},
     PasswordFinder,
 };
 
@@ -49,6 +49,13 @@ impl PasswordFinder for PasswordReader {
             Some(archive) if archive.mime_type() == "application/zip" => {
                 return pbi
                     .find_map_any(|password| password_checker(password, &zip_file))
+                    .map(|f| f.to_string());
+            }
+            Some(archive) if archive.mime_type() == "application/x-7z-compressed" => {
+                return pbi
+                    .find_map_any(|password| {
+                        sevenz_password_checker(password, compressed_file.display().to_string())
+                    })
                     .map(|f| f.to_string());
             }
             _ => None,
