@@ -1,6 +1,8 @@
 use crate::{
     password_finder::create_progress_bar,
-    password_worker::{password_checker, rar_password_checker, sevenz_password_checker},
+    password_worker::{
+        password_checker, pdf_password_checker, rar_password_checker, sevenz_password_checker,
+    },
     PasswordFinder,
 };
 use indicatif::ParallelProgressIterator;
@@ -99,6 +101,9 @@ impl PasswordFinder for PasswordGenWorker {
                     }
                     Some(archive) if archive.mime_type() == "application/zip" => {
                         password_checker(&password, &zip_file).map(|f| f.to_string())
+                    }
+                    Some(archive) if archive.mime_type() == "application/pdf" => {
+                        pdf_password_checker(&password, &zip_file).map(|f| f.to_string())
                     }
                     _ => None,
                 }

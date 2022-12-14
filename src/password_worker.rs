@@ -1,3 +1,4 @@
+use pdf::file::File;
 use std::{
     io::{Cursor, Read},
     process::Command,
@@ -44,6 +45,13 @@ pub fn sevenz_password_checker<'a>(password: &'a str, rar_file_path: String) -> 
     let output = command.output().unwrap();
     match output.status.code() {
         Some(0) => Some(password),
+        _ => None,
+    }
+}
+pub fn pdf_password_checker<'a>(password: &'a str, pdf_file: &[u8]) -> Option<&'a str> {
+    let res = File::from_data_password(pdf_file, password.as_bytes());
+    match res {
+        Ok(_) => Some(password),
         _ => None,
     }
 }
