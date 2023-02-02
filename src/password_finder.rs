@@ -9,10 +9,9 @@ use std::path::{Path, PathBuf};
 pub enum Strategy {
     PasswordFile(PathBuf),
     GenPasswords {
-        charset_choice: Vec<String>,
+        charsets: Vec<char>,
         min_password_len: usize,
         max_password_len: usize,
-        custom_chars: Vec<char>,
     },
 }
 
@@ -21,53 +20,12 @@ pub fn password_finder(zip_path: &str, strategy: Strategy) -> Result<Option<Stri
 
     let password_finder: Box<dyn PasswordFinder> = match strategy {
         GenPasswords {
-            charset_choice,
+            charsets,
             min_password_len,
             max_password_len,
-            custom_chars,
         } => {
-            let charset_letters = vec![
-                'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
-                'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-            ];
-            let charset_uppercase_letters = vec![
-                'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
-                'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-            ];
-            let charset_digits = vec!['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-            let charset_punctuations = vec![
-                ' ', '-', '=', '!', '@', '#', '$', '%', '^', '&', '*', '_', '+', '<', '>', '/',
-                '?', '.', ';', ':', '{', '}',
-            ];
-            let mut charset = charset_choice
-                .into_iter()
-                .map(|c| {
-                    if c == "number" {
-                        charset_digits.clone()
-                    } else if c == "upper" {
-                        charset_uppercase_letters.clone()
-                    } else if c == "lower" {
-                        charset_letters.clone()
-                    } else if c == "special" {
-                        charset_punctuations.clone()
-                    } else {
-                        panic!("Invalid charset choice")
-                    }
-                })
-                .flatten()
-                .collect::<Vec<char>>();
-            for c in custom_chars {
-                if !charset.contains(&c) {
-                    charset.push(c);
-                }
-            }
-            // let mut total_password_count = 0;
-            // let charset_len = charset.len();
-            // for i in min_password_len..=max_password_len {
-            //     total_password_count += charset_len.pow(i as u32);
-            // }
             let password_gen_worker =
-                PasswordGenWorker::new(charset, min_password_len, max_password_len);
+                PasswordGenWorker::new(charsets, min_password_len, max_password_len);
             Box::new(password_gen_worker)
         }
         PasswordFile(password_file_path) => {

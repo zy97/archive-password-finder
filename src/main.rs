@@ -1,4 +1,5 @@
 mod args;
+mod charsets;
 mod finder_errors;
 mod password_finder;
 mod password_gen;
@@ -8,6 +9,7 @@ use crate::password_finder::password_finder;
 use crate::password_finder::Strategy::{GenPasswords, PasswordFile};
 use args::{get_args, Arguments};
 use finder_errors::FinderError;
+use itertools::Itertools;
 use std::path::PathBuf;
 use std::{path::Path, process::exit};
 
@@ -26,29 +28,25 @@ fn main() {
 fn main_result() -> Result<(), FinderError> {
     let Arguments {
         input_file,
-        charset,
+        charsets,
         min_password_len,
         max_password_len,
         password_dictionary,
         custom_chars,
     } = get_args()?;
-    let mut charset = charset;
-    charset.retain(|f| vec!["number", "upper", "lower", "special"].contains(&f.as_str()));
-    charset.sort();
-    charset.dedup();
-    if charset.len() == 0 {
-        charset.push("number".to_string());
-    }
+    let mut charsets = vec![charsets, custom_chars].concat();
+    charsets.sort();
+    charsets.dedup();
+    println!("{:?}", charsets);
     let strategy = match password_dictionary {
         Some(dict_path) => {
             let path = Path::new(&dict_path);
             PasswordFile(path.to_path_buf())
         }
         None => GenPasswords {
-            charset_choice: charset,
+            charsets,
             min_password_len,
             max_password_len,
-            custom_chars,
         },
     };
     password_finder(&input_file, strategy)?;
