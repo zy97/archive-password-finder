@@ -13,7 +13,11 @@ pub enum FinderError {
     #[error("CLI argument match error ({message})")]
     ClapMatchError { message: String },
 }
-
+impl FinderError {
+    pub fn invalid_zip_error(message: String) -> Self {
+        FinderError::InvalidZip { message }
+    }
+}
 impl std::convert::From<std::io::Error> for FinderError {
     fn from(e: std::io::Error) -> Self {
         FinderError::StdIoError { e }

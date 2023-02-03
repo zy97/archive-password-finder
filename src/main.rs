@@ -3,16 +3,18 @@ mod charsets;
 mod finder_errors;
 mod password_finder;
 mod password_gen;
+mod password_gen1;
 mod password_reader;
 mod password_worker;
+mod progress_bar;
+mod zip;
 use crate::password_finder::password_finder;
 use crate::password_finder::Strategy::{GenPasswords, PasswordFile};
 use args::{get_args, Arguments};
 use finder_errors::FinderError;
-use itertools::Itertools;
+use password_finder::Strategy;
 use std::path::PathBuf;
 use std::{path::Path, process::exit};
-
 fn main() {
     let result = main_result();
     exit(match result {
@@ -37,7 +39,6 @@ fn main_result() -> Result<(), FinderError> {
     let mut charsets = vec![charsets, custom_chars].concat();
     charsets.sort();
     charsets.dedup();
-    println!("{:?}", charsets);
     let strategy = match password_dictionary {
         Some(dict_path) => {
             let path = Path::new(&dict_path);
@@ -53,5 +54,5 @@ fn main_result() -> Result<(), FinderError> {
     Ok(())
 }
 pub trait PasswordFinder {
-    fn find_password(&self, compressed_file: PathBuf) -> Option<String>;
+    fn find_password(&self, compressed_file: PathBuf, strategy: Strategy) -> Option<String>;
 }

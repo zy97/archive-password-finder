@@ -1,83 +1,47 @@
-use crossbeam_channel::Sender;
-use hmac::Hmac;
-use indicatif::{ParallelProgressIterator, ProgressBar};
-use rayon::{prelude::ParallelIterator, str::ParallelString};
-use sha1::Sha1;
 use std::{
     fs::{self, File},
-    io::{BufReader, Cursor, Read},
+    io::{BufReader, Cursor, Read, Seek},
     path::PathBuf,
-    process::Command,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
     thread::{self, JoinHandle},
 };
+
+use crossbeam_channel::Sender;
+use hmac::Hmac;
+use indicatif::ProgressBar;
+use sha1::Sha1;
 use zip::ZipArchive;
 
-use crate::{
-    password_finder::Strategy,
-    password_reader::password_dictionary_reader_iter,
-    progress_bar::create_progress_bar,
-    zip::{
-        zip_a::{filter_for_worker_index, ZipReader},
-        zip_utils::{validate_zip, AesInfo},
-    },
-};
+use crate::{password_finder::Strategy, password_reader::password_dictionary_reader_iter};
 
-// 使用fs::read 读取文件，并用Curosr包裹buffer，并把cursor传给ZipArchive，速度一下冲26w/s到了380w/s
-// zip_file 使用&[u8]作为参数，性能没有什么变化
-pub fn password_checker21<'a>(password: &'a str, zip_file: &[u8]) -> Option<&'a str> {
-    let cursor = Cursor::new(zip_file);
+use super::zip_utils::AesInfo;
+type Passwords = Box<dyn Iterator<Item = String>>;
 
-    let mut archive = ZipArchive::new(cursor).expect("Archive validated before-hand");
-    // 从rust文档了解到，该函数有时会接受错误密码，这是因为zip规范只允许我们检查密码是否有1/256的概率是正确的
-    // 有很多密码也能通过该方法的校验，但是实际上是错误的
-    // 这是ZipCrypto算法的一个缺陷，因为它是相当原始的密码学方法
-    let res = archive.by_index_decrypt(0, password.as_bytes());
-    match res {
-        Ok(Ok(mut zip)) => {
-            // 通过读取zip文件来验证密码，以确保它不仅仅是一个hash碰撞
-            // 不用关心重用缓冲区，因为冲突是极少的
-            let mut buffer = Vec::with_capacity(zip.size() as usize);
-            match zip.read_to_end(&mut buffer) {
-                Ok(_) => Some(password),
-                Err(_) => None,
+pub fn filter_for_worker_index(
+    passwords: Passwords,
+    worker_count: usize,
+    worker_index: usize,
+) -> Passwords {
+    if worker_count > 1 {
+        Box::new(passwords.enumerate().filter_map(move |(index, password)| {
+            if index % worker_count == worker_index {
+                Some(password)
+            } else {
+                None
             }
-        }
-        _ => None,
-    }
-}
-pub fn rar_password_checker<'a>(password: &'a str, rar_file_path: String) -> Option<&'a str> {
-    let archive = unrar::Archive::with_password(rar_file_path, password.to_string());
-    let mut open_archive = archive.test().unwrap();
-    if open_archive.process().is_ok() {
-        Some(password)
+        }))
     } else {
-        None
-    }
-}
-pub fn sevenz_password_checker<'a>(password: &'a str, rar_file_path: String) -> Option<&'a str> {
-    let mut command = Command::new(r".\7z.exe");
-    command.arg("t");
-    command.arg(rar_file_path);
-    command.arg(format!("-p{}", password));
-    let output = command.output().unwrap();
-    match output.status.code() {
-        Some(0) => Some(password),
-        _ => None,
-    }
-}
-pub fn pdf_password_checker<'a>(password: &'a str, pdf_file: &[u8]) -> Option<&'a str> {
-    let res = pdf::file::File::from_data_password(pdf_file, password.as_bytes());
-    match res {
-        Ok(_) => Some(password),
-        _ => None,
+        passwords
     }
 }
 
-pub fn password_check(
+pub trait ZipReader: Read + Seek {}
+impl ZipReader for Cursor<Vec<u8>> {}
+impl ZipReader for BufReader<fs::File> {}
+pub fn password_check1(
     worker_count: usize,
     worker_index: usize,
     zip_file: PathBuf,
@@ -178,7 +142,7 @@ pub fn password_check(
                         Err(e) => panic!("Unexpected error {e:?}"),
                     }
                 }
-                processed_delta += 1;
+                processed_delta + 1;
                 //do not check internal flags too often
                 if processed_delta == batching_dalta {
                     if first_worker {
@@ -192,23 +156,4 @@ pub fn password_check(
             }
         })
         .unwrap()
-}
-#[cfg(test)]
-mod test {
-    use std::{process::Command, time::Instant};
-
-    #[test]
-    fn test() {
-        let now = Instant::now();
-        let zip = "test1.7z";
-        let mut command = Command::new(r".\7z.exe");
-        command.arg("t");
-        command.arg(zip);
-        // command.arg(format!("-p{}", "123456"));
-        let output = command.output().unwrap();
-        let stdout = String::from_utf8(output.stdout).unwrap();
-        println!("stdout: {}", stdout);
-        println!("code : {}", output.status.code().unwrap());
-        println!("time: {:?}", now.elapsed());
-    }
 }

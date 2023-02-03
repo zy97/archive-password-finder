@@ -1,8 +1,7 @@
 use crate::{
-    password_finder::create_progress_bar,
-    password_worker::{
-        password_checker, pdf_password_checker, rar_password_checker, sevenz_password_checker,
-    },
+    password_finder::Strategy,
+    password_worker::{pdf_password_checker, rar_password_checker, sevenz_password_checker},
+    progress_bar::create_progress_bar,
     PasswordFinder,
 };
 use indicatif::ParallelProgressIterator;
@@ -14,7 +13,7 @@ pub struct PasswordGenWorker {
     charset: Vec<char>,
     min_password_len: usize,
     max_password_len: usize,
-    total_password_count: usize,
+    pub total_password_count: usize,
     current_password_index: usize,
 }
 impl Iterator for PasswordGenWorker {
@@ -46,8 +45,9 @@ impl Iterator for PasswordGenWorker {
 impl PasswordGenWorker {
     pub fn new(charset: Vec<char>, min_password_len: usize, max_password_len: usize) -> Self {
         let mut total_count = 0;
+        let char_count = charset.len();
         for i in min_password_len..=max_password_len {
-            total_count += get_cartesian_size(charset.len(), i)
+            total_count += get_cartesian_size(char_count, i)
         }
         PasswordGenWorker {
             charset,
@@ -57,9 +57,33 @@ impl PasswordGenWorker {
             current_password_index: 0,
         }
     }
+    pub fn total_count(&self) -> usize {
+        self.total_password_count
+    }
+    pub fn get_nth(&self, index: usize) -> Option<String> {
+        let current_password_index = index;
+        let total_password_count = self.total_password_count;
+        let mut passwrod_lenth = 0;
+        let mut total = 0;
+        if current_password_index < total_password_count {
+            for i in self.min_password_len..=self.max_password_len {
+                total += get_cartesian_size(self.charset.len(), i);
+                if current_password_index < total {
+                    passwrod_lenth = i;
+                    break;
+                }
+            }
+            let current_deep_count = get_cartesian_size(self.charset.len(), passwrod_lenth);
+            let current_deep_index = current_password_index - (total - current_deep_count);
+            let res = get_cartesian_for(&self.charset, passwrod_lenth, current_deep_index);
+            Some(res.unwrap().iter().collect())
+        } else {
+            None
+        }
+    }
 }
 impl PasswordFinder for PasswordGenWorker {
-    fn find_password(&self, compressed_file: PathBuf) -> Option<String> {
+    fn find_password(&self, compressed_file: PathBuf, strategy: Strategy) -> Option<String> {
         let kind = infer::get_from_path(&compressed_file).unwrap();
         let zip_file = fs::read(&compressed_file)
             .expect(format!("Failed reading the ZIP file: {}", compressed_file.display()).as_str());
@@ -99,9 +123,9 @@ impl PasswordFinder for PasswordGenWorker {
                         sevenz_password_checker(&password, compressed_file.display().to_string())
                             .map(|f| f.to_string())
                     }
-                    Some(archive) if archive.mime_type() == "application/zip" => {
-                        password_checker(&password, &zip_file).map(|f| f.to_string())
-                    }
+                    // Some(archive) if archive.mime_type() == "application/zip" => {
+                    //     password_checker(&password, &zip_file).map(|f| f.to_string())
+                    // }
                     Some(archive) if archive.mime_type() == "application/pdf" => {
                         pdf_password_checker(&password, &zip_file).map(|f| f.to_string())
                     }
