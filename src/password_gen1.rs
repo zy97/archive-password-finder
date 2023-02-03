@@ -210,19 +210,19 @@ mod tests {
         let start = std::time::Instant::now();
         let count1 = password_generator_count(&chars, 1, 8);
         println!("{count1}");
-        let char1 = password_generator_iter(&chars, 1, 8, ProgressBar::hidden()).nth(1000000);
+        // let char1 = password_generator_iter(&chars, 1, 8, ProgressBar::hidden()).nth(1000000);
         let first = start.elapsed();
 
-        let ddd = PasswordGenWorker::new(chars, 1, 8);
-        let char2 = ddd.get_nth(1000000);
-        // let count2 = ddd.total_count();
+        // let ddd = PasswordGenWorker::new(chars, 1, 8);
+        // let char2 = ddd.get_nth(1000000);
+        let count2 = crate::password_gen::password_generator_count(&chars, 1, 8);
         let second = start.elapsed();
 
         println!(
             "first({:?}): {:?},second({:?}): {:?}",
-            char1,
+            count1,
             first,
-            char2,
+            count2,
             second - first,
         );
     }

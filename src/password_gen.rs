@@ -9,6 +9,15 @@ use permutator::{copy::get_cartesian_for, get_cartesian_size};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::{fs, path::PathBuf};
 
+pub fn password_generator_count(charset: &Vec<char>, min_size: usize, max_size: usize) -> usize {
+    // compute the number of passwords to generate
+    let charset_len = charset.len();
+    let mut total_password_count = 0;
+    for i in min_size..=max_size {
+        total_password_count += charset_len.pow(i as u32)
+    }
+    total_password_count
+}
 pub struct PasswordGenWorker {
     charset: Vec<char>,
     min_password_len: usize,
