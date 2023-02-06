@@ -25,6 +25,20 @@ hmac = { version = "0.12.1", features = ["reset"] }
 sha1 = "0.10.5"
 dyn-clone = "1.0.10"
 ahash = "0.8.3"
+
+[profile.test]
+opt-level = 3 # needed for fast execution
+
+[dev-dependencies]
+criterion = { version = "0.4.0", features = ["html_reports"] }
+
+[profile.bench]
+debug = true
+
+[[bench]]
+name = "password_generator"
+harness = false
+
 [profile.release]
 # opt-level = 'z'
 # strip = true
