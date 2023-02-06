@@ -11,7 +11,7 @@ use std::{
 
 use crate::{
     finder_errors::FinderError, password_finder::Strategy, password_gen::PasswordGenWorker,
-    password_reader::PasswordReader, zip::zip_utils::validate_zip, Passwords,
+    password_reader::PasswordReader, Passwords,
 };
 
 pub fn password_check(
@@ -66,12 +66,10 @@ pub fn password_check(
                         )
                     }
                     Some(file) if file.mime_type() == "application/zip" => {
-                        let aes_info = validate_zip(&file_path, &progress_bar).unwrap();
                         crate::zip::password_check(
                             worker_count,
                             i,
                             file_path,
-                            aes_info,
                             passwords,
                             send_password_found,
                             stop_workers_signal,
@@ -103,7 +101,6 @@ pub fn password_check(
                         )
                     }
                     _ => {
-                        println!("7777777777");
                         progress_bar.abandon_with_message(format!(
                             " {} is not supported",
                             file_path.display()

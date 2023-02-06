@@ -45,5 +45,6 @@ harness = false
 # panic = "abort"
 # panic = "abort"
 [features]
+default = ["pdf"]
 7z = ["sevenz-rust"]
 rar = ["unrar"]

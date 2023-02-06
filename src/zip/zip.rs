@@ -16,7 +16,7 @@ use zip::ZipArchive;
 
 use crate::{filter_for_worker_index, Passwords};
 
-use super::zip_utils::AesInfo;
+use super::zip_utils::validate_zip;
 
 pub trait ZipReader: Read + Seek {}
 impl ZipReader for Cursor<Vec<u8>> {}
@@ -25,7 +25,6 @@ pub fn password_check(
     worker_count: usize,
     worker_index: usize,
     zip_file: PathBuf,
-    aes_info: Option<AesInfo>,
     passwords: Passwords,
     send_password_found: Sender<String>,
     stop_workers_signal: Arc<AtomicBool>,
@@ -33,6 +32,13 @@ pub fn password_check(
 ) {
     let batching_dalta = worker_count * 500;
     let first_worker = worker_index == 1;
+    let progress_bar = if first_worker {
+        Some(&progress_bar)
+    } else {
+        None
+    };
+    let aes_info = validate_zip(&zip_file, progress_bar).unwrap();
+
     let progress_bar_delta: u64 = (batching_dalta * worker_count) as u64;
     let passwords = filter_for_worker_index(passwords, worker_count, worker_index);
 
@@ -105,7 +111,10 @@ pub fn password_check(
         //do not check internal flags too often
         if processed_delta == batching_dalta {
             if first_worker {
-                progress_bar.inc(progress_bar_delta);
+                match progress_bar {
+                    Some(pb) => pb.inc(progress_bar_delta),
+                    None => (),
+                }
             }
             if stop_workers_signal.load(Ordering::Relaxed) {
                 break;

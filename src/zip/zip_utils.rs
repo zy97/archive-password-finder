@@ -29,7 +29,7 @@ impl AesInfo {
 // validate that the zip requires a password
 pub fn validate_zip(
     file_path: &PathBuf,
-    progress_bar: &ProgressBar,
+    progress_bar: Option<&ProgressBar>,
 ) -> Result<Option<AesInfo>, FinderError> {
     let file = File::open(file_path)?;
     let mut archive = zip::ZipArchive::new(file)?;
@@ -54,13 +54,16 @@ pub fn validate_zip(
             "Unexpected error {e:?}"
         ))),
     }?;
-    match &aes_info {
-        Some(aes_info) => progress_bar.println(format!(
-            "Archive is encrypted with AES{} - expect a long wait time",
-            aes_info.aes_key_length * 8
-        )),
-        None => progress_bar
-            .println("Archive is encrypted with ZipCrypto - expect a much faster throughput"),
+    match progress_bar {
+        Some(progress_bar) => match &aes_info {
+            Some(aes_info) => progress_bar.println(format!(
+                "Archive is encrypted with AES{} - expect a long wait time",
+                aes_info.aes_key_length * 8
+            )),
+            None => progress_bar
+                .println("Archive is encrypted with ZipCrypto - expect a much faster throughput"),
+        },
+        None => {}
     }
     Ok(aes_info)
 }
