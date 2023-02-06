@@ -53,6 +53,7 @@ pub fn password_check(
                     }
                 };
                 match file_type {
+                    #[cfg(feature = "rar")]
                     Some(file) if file.mime_type() == "application/vnd.rar" => {
                         crate::rar::password_check(
                             worker_count,
@@ -77,6 +78,7 @@ pub fn password_check(
                             progress_bar,
                         )
                     }
+                    #[cfg(feature = "7z")]
                     Some(file) if file.mime_type() == "application/x-7z-compressed" => {
                         crate::seven_z::password_check(
                             worker_count,
@@ -88,6 +90,7 @@ pub fn password_check(
                             progress_bar,
                         )
                     }
+                    #[cfg(feature = "pdf")]
                     Some(file) if file.mime_type() == "application/pdf" => {
                         crate::pdf::password_check(
                             worker_count,
@@ -99,7 +102,13 @@ pub fn password_check(
                             progress_bar,
                         )
                     }
-                    _ => {}
+                    _ => {
+                        println!("7777777777");
+                        progress_bar.abandon_with_message(format!(
+                            " {} is not supported",
+                            file_path.display()
+                        ));
+                    }
                 }
             })
             .unwrap();

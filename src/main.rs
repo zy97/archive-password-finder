@@ -5,9 +5,12 @@ mod password_finder;
 mod password_gen;
 mod password_reader;
 mod password_worker;
+#[cfg(feature = "pdf")]
 mod pdf;
 mod progress_bar;
+#[cfg(feature = "rar")]
 mod rar;
+#[cfg(feature = "7z")]
 mod seven_z;
 mod zip;
 

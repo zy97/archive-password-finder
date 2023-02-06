@@ -69,7 +69,7 @@ pub fn password_finder(
             println!("Found password: {}", password_found);
         }
         Err(_) => {
-            progress_bar.finish();
+            progress_bar.abandon();
             println!("Password not found");
         }
     }
