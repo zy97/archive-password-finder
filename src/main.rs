@@ -24,13 +24,12 @@ fn main() {
             1
         }
     })
-    // println!("按回车键退出...");
-    // stdin().read(&mut [0]).unwrap();
 }
 fn main_result() -> Result<(), FinderError> {
     let Arguments {
         input_file,
         charsets,
+        workers,
         min_password_len,
         max_password_len,
         password_dictionary,
@@ -50,7 +49,11 @@ fn main_result() -> Result<(), FinderError> {
             max_password_len,
         },
     };
-    password_finder(&input_file, strategy)?;
+    password_finder(
+        &input_file,
+        workers.unwrap_or_else(num_cpus::get_physical),
+        strategy,
+    )?;
     Ok(())
 }
 pub trait PasswordFinder {

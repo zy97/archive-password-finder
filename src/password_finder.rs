@@ -2,12 +2,10 @@ use crossbeam_channel::{Receiver, Sender};
 
 use crate::finder_errors::FinderError;
 use crate::password_finder::Strategy::{GenPasswords, PasswordFile};
-use crate::password_gen::{password_generator_count, PasswordGenWorker};
-use crate::password_reader::{password_reader_count, PasswordReader};
+use crate::password_gen::password_generator_count;
+use crate::password_reader::password_reader_count;
 use crate::progress_bar::create_progress_bar;
-use crate::zip::zip_a::Passwords;
 use crate::zip::zip_utils::validate_zip;
-use crate::PasswordFinder;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -22,7 +20,11 @@ pub enum Strategy {
     },
 }
 
-pub fn password_finder(zip_path: &str, strategy: Strategy) -> Result<Option<String>, FinderError> {
+pub fn password_finder(
+    zip_path: &str,
+    workers: usize,
+    strategy: Strategy,
+) -> Result<Option<String>, FinderError> {
     let zip_path = Path::new(zip_path);
 
     //停止与线程关闭信号量
@@ -39,17 +41,17 @@ pub fn password_finder(zip_path: &str, strategy: Strategy) -> Result<Option<Stri
     };
     // Fail early if the zip file is not valid
 
-    let workers_count = 4;
     let (send_found_password, receive_found_password): (Sender<String>, Receiver<String>) =
         crossbeam_channel::bounded(1);
-    let mut worker_handles = Vec::with_capacity(workers_count);
+    let mut worker_handles = Vec::with_capacity(workers);
     // let password = password_finder.find_password(zip_path.to_path_buf(), strategy.clone());
     let progress_bar = create_progress_bar(total_password_count as u64);
+    progress_bar.println(format!("Starting {workers} workers to test passwords"));
     let aes_info = validate_zip(zip_path, &progress_bar)?;
 
-    for i in 1..=workers_count {
+    for i in 1..=workers {
         let join_handle = crate::password_worker::password_check(
-            workers_count,
+            workers,
             i,
             zip_path.to_path_buf(),
             aes_info.clone(),

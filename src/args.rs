@@ -7,6 +7,7 @@ use itertools::Itertools;
 use std::path::Path;
 
 fn command() -> clap::Command {
+    let cpus = num_cpus::get_physical();
     Command::new(crate_name!())
         .version(crate_version!())
         .author(crate_authors!())
@@ -77,6 +78,7 @@ fn command() -> clap::Command {
 
 pub struct Arguments {
     pub input_file: String,
+    pub workers: Option<usize>,
     pub charsets: Vec<char>,
     pub min_password_len: usize,
     pub max_password_len: usize,
@@ -92,6 +94,13 @@ pub fn get_args() -> Result<Arguments, FinderError> {
     if !Path::new(input_file).is_file() {
         return Err(CliArgumentError {
             message: "'inputFile' does not exist".to_string(),
+        });
+    }
+
+    let workers: Option<&usize> = matches.try_get_one("workers")?;
+    if workers == Some(&0) {
+        return Err(CliArgumentError {
+            message: "'workers' must be positive".to_string(),
         });
     }
 
@@ -149,7 +158,8 @@ pub fn get_args() -> Result<Arguments, FinderError> {
 
     Ok(Arguments {
         input_file: input_file.clone(),
-        charsets: charsets,
+        charsets,
+        workers: workers.cloned(),
         min_password_len: *min_password_len,
         max_password_len: *max_password_len,
         password_dictionary: password_dictionary.cloned(),

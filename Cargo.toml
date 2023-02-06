@@ -25,6 +25,7 @@ hmac = { version = "0.12.1", features = ["reset"] }
 sha1 = "0.10.5"
 dyn-clone = "1.0.10"
 ahash = "0.8.3"
+num_cpus = "1.15.0"
 
 [profile.test]
 opt-level = 3 # needed for fast execution

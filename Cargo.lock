@@ -1739,6 +1739,7 @@ dependencies = [
  "indicatif",
  "infer",
  "itertools",
+ "num_cpus",
  "parse-display",
  "pbkdf2",
  "pdf",
