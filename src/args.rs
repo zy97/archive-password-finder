@@ -7,7 +7,6 @@ use itertools::Itertools;
 use std::path::Path;
 
 fn command() -> clap::Command {
-    let cpus = num_cpus::get_physical();
     Command::new(crate_name!())
         .version(crate_version!())
         .author(crate_authors!())

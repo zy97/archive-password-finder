@@ -9,22 +9,18 @@ edition = "2021"
 # 性能比官方的强，所以选择它 
 thiserror = "1.0.38"
 crossbeam-channel = "0.5.6"
-indicatif = { version = "0.17.3", features = ["rayon"] }
+indicatif = { version = "0.17.3", features = [] }
 zip = { version = "0.6.3", git = "https://github.com/agourlay/zip.git", branch = "zip-password-finder" } # dedicated fork
 clap = { version = "4.1.4", features = ["cargo"] }
-rayon = "1.6.1"
 permutator = "0.4.3"
 unrar = "0.4.4"
 infer = "0.12.0"
 pdf = { version = "0.8.0", features = [] }
 parse-display = "0.8.0"
 itertools = "0.10.5"
-crossbeam-utils = "0.8.14"
 pbkdf2 = "0.11.0"                                                                                        # parallel version did not help the performance
 hmac = { version = "0.12.1", features = ["reset"] }
 sha1 = "0.10.5"
-dyn-clone = "1.0.10"
-ahash = "0.8.3"
 num_cpus = "1.15.0"
 
 [profile.test]

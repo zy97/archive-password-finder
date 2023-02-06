@@ -5,7 +5,6 @@ use crate::password_finder::Strategy::{GenPasswords, PasswordFile};
 use crate::password_gen::password_generator_count;
 use crate::password_reader::password_reader_count;
 use crate::progress_bar::create_progress_bar;
-use crate::zip::zip_utils::validate_zip;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -21,47 +20,39 @@ pub enum Strategy {
 }
 
 pub fn password_finder(
-    zip_path: &str,
+    file_path: &str,
     workers: usize,
     strategy: Strategy,
 ) -> Result<Option<String>, FinderError> {
-    let zip_path = Path::new(zip_path);
-
+    let file_path = Path::new(file_path);
+    let file_type = infer::get_from_path(&file_path).unwrap();
     //停止与线程关闭信号量
     let stop_workers_signal = Arc::new(AtomicBool::new(false));
     let stop_gen_signal = Arc::new(AtomicBool::new(false));
 
-    let total_password_count = match &strategy {
-        GenPasswords {
-            charsets,
-            min_password_len,
-            max_password_len,
-        } => password_generator_count(charsets, *min_password_len, *max_password_len),
-        PasswordFile(password_file_path) => password_reader_count(password_file_path)?,
-    };
+    let total_password_count = get_password_count(&strategy)?;
     // Fail early if the zip file is not valid
 
     let (send_found_password, receive_found_password): (Sender<String>, Receiver<String>) =
         crossbeam_channel::bounded(1);
-    let mut worker_handles = Vec::with_capacity(workers);
-    // let password = password_finder.find_password(zip_path.to_path_buf(), strategy.clone());
     let progress_bar = create_progress_bar(total_password_count as u64);
     progress_bar.println(format!("Starting {workers} workers to test passwords"));
-    let aes_info = validate_zip(zip_path, &progress_bar)?;
-
-    for i in 1..=workers {
-        let join_handle = crate::password_worker::password_check(
-            workers,
-            i,
-            zip_path.to_path_buf(),
-            aes_info.clone(),
-            strategy.clone(),
-            send_found_password.clone(),
-            stop_workers_signal.clone(),
-            progress_bar.clone(),
-        );
-        worker_handles.push(join_handle);
-    }
+    // match file_type {
+    //     Some(file) if file.mime_type() == "application/vnd.rar" => {}
+    //     Some(file) if file.mime_type() == "application/zip" => {}
+    //     Some(file) if file.mime_type() == "application/x-7z-compressed" => {}
+    //     Some(file) if file.mime_type() == "application/pdf" => {}
+    //     _ => {}
+    // }
+    let worker_handles = crate::password_worker::password_check(
+        workers,
+        file_path.to_path_buf(),
+        strategy.clone(),
+        send_found_password.clone(),
+        stop_workers_signal.clone(),
+        progress_bar.clone(),
+        file_type,
+    )?;
     // drop reference in `main` so that it disappears completely with workers for a clean shutdown
     drop(send_found_password);
 
@@ -74,15 +65,24 @@ pub fn password_finder(
             for h in worker_handles {
                 h.join().unwrap();
             }
-            // progress_bar.finish_and_clear();
             progress_bar.abandon();
             println!("Found password: {}", password_found);
         }
         Err(_) => {
-            // progress_bar.finish_and_clear();
             progress_bar.finish();
             println!("Password not found");
         }
     }
     Ok(None)
+}
+fn get_password_count(strategy: &Strategy) -> Result<usize, FinderError> {
+    let total_password_count = match &strategy {
+        GenPasswords {
+            charsets,
+            min_password_len,
+            max_password_len,
+        } => password_generator_count(charsets, *min_password_len, *max_password_len),
+        PasswordFile(password_file_path) => password_reader_count(password_file_path)?,
+    };
+    Ok(total_password_count)
 }

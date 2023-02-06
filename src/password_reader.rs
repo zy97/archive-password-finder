@@ -1,31 +1,12 @@
 use std::{
-    fs::{self, File},
+    fs::File,
     io::{BufRead, BufReader},
     path::PathBuf,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-};
-
-use crossbeam_channel::{Receiver, Sender};
-use indicatif::{ParallelProgressIterator, ProgressBar};
-use rayon::{prelude::ParallelIterator, str::ParallelString};
-
-use crate::{
-    password_finder::Strategy,
-    password_worker::{pdf_password_checker, rar_password_checker, sevenz_password_checker},
-    progress_bar::create_progress_bar,
-    zip::zip_utils::validate_zip,
-    PasswordFinder,
 };
 
 pub struct PasswordReader {
     reader: BufReader<File>,
     line_buffer: String,
-}
-pub fn password_dictionary_reader_iter(dictionary_path: PathBuf) -> impl Iterator<Item = String> {
-    PasswordReader::new(dictionary_path)
 }
 pub fn password_reader_count(dictionary_path: &PathBuf) -> Result<usize, std::io::Error> {
     let file = File::open(dictionary_path).expect("Unable to open file");
@@ -77,103 +58,6 @@ impl Iterator for PasswordReader {
                 }
                 Err(_) => continue,
             }
-        }
-    }
-}
-
-impl PasswordFinder for PasswordReader {
-    fn find_password(self: &Self, file_path: PathBuf, strategy: Strategy) -> Option<String> {
-        let kind = infer::get_from_path(&file_path).unwrap();
-        let zip_file = fs::read(&file_path)
-            .expect(format!("Failed reading the ZIP file: {}", file_path.display()).as_str());
-        let password_count = 1;
-        let progress_bar = create_progress_bar(password_count as u64);
-        // let pbi = self.par_lines().progress_with(progress_bar);
-        let sdf = String::from("value");
-        let pbi = sdf.par_lines().progress_with(progress_bar.clone());
-        match kind {
-            Some(archive) if archive.mime_type() == "application/vnd.rar" => {
-                return pbi
-                    .find_map_any(|password| {
-                        rar_password_checker(&password, file_path.display().to_string())
-                    })
-                    .map(|f| f.to_string());
-            }
-            Some(archive) if archive.mime_type() == "application/zip" => {
-                let aes_info = validate_zip(&file_path.as_path(), &ProgressBar::hidden()).unwrap();
-                let workers = 4;
-                let mut worker_handles = Vec::with_capacity(workers);
-                // stop signals to shutdown threads
-                let stop_workers_signal = Arc::new(AtomicBool::new(false));
-                let stop_gen_signal = Arc::new(AtomicBool::new(false));
-                let (send_found_password, receive_found_password): (
-                    Sender<String>,
-                    Receiver<String>,
-                ) = crossbeam_channel::bounded(1);
-                let total_password_count = match &strategy {
-                    Strategy::GenPasswords {
-                        charsets,
-                        min_password_len,
-                        max_password_len,
-                    } => todo!(),
-                    Strategy::PasswordFile(password_list_path) => {
-                        let total =
-                            password_reader_count(&password_list_path.to_path_buf()).unwrap();
-                        progress_bar.println(format!(
-                            "Using passwords dictionary {password_list_path:?} with {total} candidates."
-                        ));
-                        total
-                    }
-                };
-                progress_bar.set_length(total_password_count as u64);
-                // progress_bar.println(format!("Starting {workers} workers to test passwords"));
-                for i in 1..=workers {
-                    let join_handle = crate::password_worker::password_check(
-                        workers,
-                        i,
-                        file_path.clone(),
-                        aes_info.clone(),
-                        strategy.clone(),
-                        send_found_password.clone(),
-                        stop_workers_signal.clone(),
-                        progress_bar.clone(),
-                    );
-                    worker_handles.push(join_handle);
-                }
-                // drop reference in `main` so that it disappears completely with workers for a clean shutdown
-                drop(send_found_password);
-
-                match receive_found_password.recv() {
-                    Ok(password_found) => {
-                        // stop generating values first to avoid deadlock on channel
-                        stop_gen_signal.store(true, Ordering::Relaxed);
-                        // stop workers
-                        stop_workers_signal.store(true, Ordering::Relaxed);
-                        for h in worker_handles {
-                            h.join().unwrap();
-                        }
-                        // progress_bar.finish_and_clear();
-                        Some(password_found)
-                    }
-                    Err(_) => {
-                        // progress_bar.finish_and_clear();
-                        None
-                    }
-                }
-            }
-            Some(archive) if archive.mime_type() == "application/x-7z-compressed" => {
-                return pbi
-                    .find_map_any(|password| {
-                        sevenz_password_checker(&password, file_path.display().to_string())
-                    })
-                    .map(|f| f.to_string());
-            }
-            Some(archive) if archive.mime_type() == "application/pdf" => {
-                return pbi
-                    .find_map_any(|password| pdf_password_checker(&password, &zip_file))
-                    .map(|f| f.to_string());
-            }
-            _ => None,
         }
     }
 }

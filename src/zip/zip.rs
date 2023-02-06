@@ -6,7 +6,6 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    thread::{self, JoinHandle},
 };
 
 use crossbeam_channel::Sender;
@@ -15,28 +14,9 @@ use indicatif::ProgressBar;
 use sha1::Sha1;
 use zip::ZipArchive;
 
-use crate::{password_finder::Strategy, password_reader::password_dictionary_reader_iter};
+use crate::{filter_for_worker_index, Passwords};
 
 use super::zip_utils::AesInfo;
-pub type Passwords = Box<dyn Iterator<Item = String>>;
-
-pub fn filter_for_worker_index(
-    passwords: Passwords,
-    worker_count: usize,
-    worker_index: usize,
-) -> Passwords {
-    if worker_count > 1 {
-        Box::new(passwords.enumerate().filter_map(move |(index, password)| {
-            if index % worker_count == worker_index {
-                Some(password)
-            } else {
-                None
-            }
-        }))
-    } else {
-        passwords
-    }
-}
 
 pub trait ZipReader: Read + Seek {}
 impl ZipReader for Cursor<Vec<u8>> {}
@@ -54,24 +34,6 @@ pub fn password_check(
     let batching_dalta = worker_count * 500;
     let first_worker = worker_index == 1;
     let progress_bar_delta: u64 = (batching_dalta * worker_count) as u64;
-    // let mut password_iter: Box<dyn Iterator<Item = String>> = match stragegy {
-    //     Strategy::GenPasswords {
-    //         charsets,
-    //         min_password_len,
-    //         max_password_len,
-    //     } => {
-    //         let pb = if first_worker {
-    //             progress_bar.clone()
-    //         } else {
-    //             ProgressBar::hidden()
-    //         };
-    //         todo!()
-    //     }
-    //     Strategy::PasswordFile(dictionary_path) => {
-    //         let iterator = password_dictionary_reader_iter(dictionary_path);
-    //         Box::new(iterator)
-    //     }
-    // };
     let passwords = filter_for_worker_index(passwords, worker_count, worker_index);
 
     // AES info bindings

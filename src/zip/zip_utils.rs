@@ -1,7 +1,7 @@
 use crate::finder_errors::FinderError;
 use indicatif::ProgressBar;
 use std::fs::File;
-use std::path::Path;
+use std::path::PathBuf;
 use zip::result::ZipError::UnsupportedArchive;
 
 #[derive(Clone, Debug)]
@@ -28,7 +28,7 @@ impl AesInfo {
 
 // validate that the zip requires a password
 pub fn validate_zip(
-    file_path: &Path,
+    file_path: &PathBuf,
     progress_bar: &ProgressBar,
 ) -> Result<Option<AesInfo>, FinderError> {
     let file = File::open(file_path)?;
