@@ -18,6 +18,21 @@ pub fn password_generator_count(charset: &Vec<char>, min_size: usize, max_size: 
     }
     total_password_count
 }
+pub fn password_generator_iter(
+    charset: &Vec<char>,
+    min_size: usize,
+    max_size: usize,
+) -> impl Iterator<Item = String> {
+    // // start generation
+    // progress_bar.println(format!(
+    //     "Generating passwords with length from {} to {} for charset with length {}\n{:?}",
+    //     min_size,
+    //     max_size,
+    //     charset.len(),
+    //     charset
+    // ));
+    PasswordGenWorker::new(charset.clone(), min_size, max_size)
+}
 pub struct PasswordGenWorker {
     charset: Vec<char>,
     min_password_len: usize,

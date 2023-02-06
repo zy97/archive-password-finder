@@ -2,7 +2,7 @@ use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 
 pub fn create_progress_bar(len: u64) -> ProgressBar {
     //设置进度条 进度条的样式也会影响性能，进度条越简单性能也好，影响比较小
-    let progress_bar = ProgressBar::new(len).with_finish(indicatif::ProgressFinish::AndLeave);
+    let progress_bar = ProgressBar::new(len).with_finish(indicatif::ProgressFinish::Abandon);
     let progress_style = ProgressStyle::default_bar()
         // .template("[{elapsed_precise}] {spinner} {pos:7}/{len:7} throughput:{per_sec} (eta:{eta})")
         .template("[{elapsed_precise}] {wide_bar} {pos}/{len} throughput:{per_sec} (eta:{eta})")

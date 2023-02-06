@@ -9,7 +9,7 @@ use std::{
 };
 
 use crossbeam_channel::{Receiver, Sender};
-use indicatif::ParallelProgressIterator;
+use indicatif::{ParallelProgressIterator, ProgressBar};
 use rayon::{prelude::ParallelIterator, str::ParallelString};
 
 use crate::{
@@ -27,7 +27,7 @@ pub struct PasswordReader {
 pub fn password_dictionary_reader_iter(dictionary_path: PathBuf) -> impl Iterator<Item = String> {
     PasswordReader::new(dictionary_path)
 }
-pub fn password_reader_count(dictionary_path: PathBuf) -> Result<usize, std::io::Error> {
+pub fn password_reader_count(dictionary_path: &PathBuf) -> Result<usize, std::io::Error> {
     let file = File::open(dictionary_path).expect("Unable to open file");
     let mut reader = BufReader::new(file);
     let mut total_count = 0;
@@ -100,7 +100,7 @@ impl PasswordFinder for PasswordReader {
                     .map(|f| f.to_string());
             }
             Some(archive) if archive.mime_type() == "application/zip" => {
-                let aes_info = validate_zip(&file_path.as_path()).unwrap();
+                let aes_info = validate_zip(&file_path.as_path(), &ProgressBar::hidden()).unwrap();
                 let workers = 4;
                 let mut worker_handles = Vec::with_capacity(workers);
                 // stop signals to shutdown threads
@@ -118,7 +118,7 @@ impl PasswordFinder for PasswordReader {
                     } => todo!(),
                     Strategy::PasswordFile(password_list_path) => {
                         let total =
-                            password_reader_count(password_list_path.to_path_buf()).unwrap();
+                            password_reader_count(&password_list_path.to_path_buf()).unwrap();
                         progress_bar.println(format!(
                             "Using passwords dictionary {password_list_path:?} with {total} candidates."
                         ));
@@ -196,7 +196,7 @@ mod tests {
         assert_eq!(5189454, content.lines().count());
         let first = start.elapsed();
 
-        let count = password_reader_count(path).unwrap();
+        let count = password_reader_count(&path).unwrap();
         assert_eq!(5189454, count);
         let second = start.elapsed();
 
