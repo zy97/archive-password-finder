@@ -7,16 +7,45 @@ edition = "2021"
 
 [dependencies]
 # 性能比官方的强，所以选择它 
+thiserror = "1.0.38"
 crossbeam-channel = "0.5.6"
-indicatif = "0.17.1"
-num_cpus = "1.13.1"
-zip = "0.6.2"
-clap = { version = "4.0.14", features = ["cargo"] }
-thiserror = "1.0.37"
+indicatif = { version = "0.17.3", features = [] }
+zip = { version = "0.6.3", git = "https://github.com/agourlay/zip.git", branch = "zip-password-finder" } # dedicated fork
+clap = { version = "4.1.4", features = ["cargo"] }
+# permutator = "0.4.3"
+unrar = { version = "0.4.4", optional = true }
+infer = "0.12.0"
+pdf = { version = "0.8.0", optional = true }
+parse-display = "0.8.0"
+itertools = "0.10.5"
+pbkdf2 = "0.11.0"                                                           # parallel version did not help the performance
+hmac = { version = "0.12.1", features = ["reset"] }
+sha1 = "0.10.5"
+num_cpus = "1.15.0"
+sevenz-rust = { version = "0.2.2", features = ["aes256"], optional = true }
+ahash = "0.8.3"
+
+[profile.test]
+opt-level = 3 # needed for fast execution
+
+[dev-dependencies]
+criterion = { version = "0.4.0", features = ["html_reports"] }
+
+[profile.bench]
+debug = true
+
+[[bench]]
+name = "password_generator"
+harness = false
 
 [profile.release]
-opt-level = 'z'
-strip = true
-lto = true
-codegen-units = 1
-panic = "abort"
+# opt-level = 'z'
+# strip = true
+# lto = true
+# codegen-units = 1
+# panic = "abort"
+# panic = "abort"
+[features]
+default = ["pdf"]
+7z = ["sevenz-rust"]
+rar = ["unrar"]

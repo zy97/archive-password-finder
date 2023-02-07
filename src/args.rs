@@ -1,7 +1,9 @@
+use crate::charsets::CharsetChoice;
 use crate::finder_errors::FinderError;
 use crate::finder_errors::FinderError::CliArgumentError;
 use clap::{crate_authors, crate_description, crate_name, crate_version, value_parser};
 use clap::{Arg, Command};
+use itertools::Itertools;
 use std::path::Path;
 
 fn command() -> clap::Command {
@@ -35,12 +37,22 @@ fn command() -> clap::Command {
                 .required(false),
         )
         .arg(
-            Arg::new("charset")
-                .help("charset to use to generate password: number, lower, upper, special")
-                .long("charset")
+            Arg::new("charsets")
+                .help(format!(
+                    "charset to use to generate password: {}",
+                    CharsetChoice::to_string()
+                ))
+                .long("charsets")
                 .short('c')
                 .value_delimiter(',')
                 .default_value("number")
+                .required(false),
+        )
+        .arg(
+            Arg::new("customCharset")
+                .help("charset to use to generate password")
+                .long("customCharset")
+                .value_delimiter(',')
                 .required(false),
         )
         .arg(
@@ -66,10 +78,11 @@ fn command() -> clap::Command {
 pub struct Arguments {
     pub input_file: String,
     pub workers: Option<usize>,
-    pub charset: Vec<String>,
+    pub charsets: Vec<char>,
     pub min_password_len: usize,
     pub max_password_len: usize,
     pub password_dictionary: Option<String>,
+    pub custom_chars: Vec<char>,
 }
 
 pub fn get_args() -> Result<Arguments, FinderError> {
@@ -83,6 +96,13 @@ pub fn get_args() -> Result<Arguments, FinderError> {
         });
     }
 
+    let workers: Option<&usize> = matches.try_get_one("workers")?;
+    if workers == Some(&0) {
+        return Err(CliArgumentError {
+            message: "'workers' must be positive".to_string(),
+        });
+    }
+
     let password_dictionary = matches.try_get_one("passwordDictionary")?;
     if let Some(dict_path) = password_dictionary {
         if !Path::new(dict_path).is_file() {
@@ -92,17 +112,28 @@ pub fn get_args() -> Result<Arguments, FinderError> {
         }
     }
 
-    let charset = matches
-        .get_many::<String>("charset")
+    let charsets = matches
+        .get_many::<String>("charsets")
         .unwrap()
-        .collect::<Vec<_>>();
+        .collect::<Vec<&String>>()
+        .iter()
+        .sorted()
+        .filter_map(|f| f.parse().ok())
+        .dedup()
+        .map(|f| CharsetChoice::to_charset(f))
+        .flatten()
+        .collect::<Vec<char>>();
 
-    let workers = matches.try_get_one("workers")?;
-    if workers == Some(&0) {
-        return Err(CliArgumentError {
-            message: "'workers' must be positive".to_string(),
-        });
-    }
+    let custom_chars = match matches.try_get_many::<String>("customCharset") {
+        Ok(Some(v)) => v
+            .collect::<Vec<_>>()
+            .into_iter()
+            .filter(|f| f.len() == 1)
+            .map(|f| f.chars().next().unwrap())
+            .collect::<Vec<_>>(),
+
+        _ => vec![],
+    };
 
     let min_password_len = matches.get_one("minPasswordLen").expect("impossible");
     if *min_password_len == 0 {
@@ -126,14 +157,12 @@ pub fn get_args() -> Result<Arguments, FinderError> {
 
     Ok(Arguments {
         input_file: input_file.clone(),
+        charsets,
         workers: workers.cloned(),
-        charset: charset
-            .into_iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<_>>(),
         min_password_len: *min_password_len,
         max_password_len: *max_password_len,
         password_dictionary: password_dictionary.cloned(),
+        custom_chars,
     })
 }
 
