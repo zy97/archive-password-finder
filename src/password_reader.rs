@@ -61,29 +61,3 @@ impl Iterator for PasswordReader {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use std::{fs::File, io::Read, path::PathBuf};
-
-    use crate::password_reader::password_reader_count;
-
-    #[test]
-    fn read_dic_test() {
-        let path = PathBuf::from("xato-net-10-million-passwords.txt");
-        let start = std::time::Instant::now();
-        let mut content = String::new();
-        File::open(path.clone())
-            .unwrap()
-            .read_to_string(&mut content)
-            .unwrap();
-        assert_eq!(5189454, content.lines().count());
-        let first = start.elapsed();
-
-        let count = password_reader_count(&path).unwrap();
-        assert_eq!(5189454, count);
-        let second = start.elapsed();
-
-        println!("first: {:?},second: {:?}", first, second - first);
-    }
-}

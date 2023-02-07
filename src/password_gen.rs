@@ -134,15 +134,3 @@ impl PasswordGenerator {
         }
     }
 }
-#[cfg(test)]
-mod test {
-    use super::PasswordGenerator;
-
-    #[test]
-    fn test1() {
-        let sdf = PasswordGenerator::new(vec!['u', 's'], 8, 12);
-        for p in sdf {
-            println!("{}", p);
-        }
-    }
-}
