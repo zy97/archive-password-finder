@@ -6,10 +6,11 @@ pub struct App {
     pub is_exiting: bool,
 }
 impl eframe::App for App {
-    fn on_exit_event(&mut self) -> bool {
+    fn on_close_event(&mut self) -> bool {
         self.is_exiting = true;
         self.can_exit
     }
+
     fn clear_color(&self, _visuals: &egui::Visuals) -> egui::Rgba {
         egui::Rgba::TRANSPARENT
     }
@@ -32,7 +33,7 @@ impl eframe::App for App {
                         }
                         if ui.button("Yes!").clicked() {
                             self.can_exit = true;
-                            frame.quit()
+                            frame.close()
                         }
                     })
                 });
