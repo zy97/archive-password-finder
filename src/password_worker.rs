@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::{
-    finder_errors::FinderError, password_finder::Strategy, password_gen::PasswordGenWorker,
+    finder_errors::FinderError, password_finder::Strategy, password_gen::PasswordGenerator,
     password_reader::PasswordReader, Passwords,
 };
 
@@ -43,7 +43,7 @@ pub fn password_check(
                     } => {
                         let c = charsets.clone();
                         let password_gen_worker =
-                            PasswordGenWorker::new(c, *min_password_len, *max_password_len);
+                            PasswordGenerator::new(c, *min_password_len, *max_password_len);
 
                         Box::new(password_gen_worker)
                     }

@@ -41,7 +41,11 @@ fn main_result() -> Result<(), FinderError> {
         password_dictionary,
         custom_chars,
     } = get_args()?;
-    let mut charsets = vec![charsets, custom_chars].concat();
+    let mut charsets = if custom_chars.len() > 0 {
+        custom_chars
+    } else {
+        charsets
+    };
     charsets.sort();
     charsets.dedup();
     let strategy = match password_dictionary {
