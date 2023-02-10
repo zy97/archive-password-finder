@@ -1,50 +1,81 @@
-use eframe::egui;
+use eframe::egui::{self};
+
+use crate::Mode;
 
 #[derive()]
 pub struct App {
-    pub can_exit: bool,
-    pub is_exiting: bool,
+    
+    pub file_path: Option<String>,
+    pub dictionary_path: Option<String>,
+    mode: Mode,
+    pub selected_charset: [bool; 4],
 }
 impl eframe::App for App {
-    fn on_close_event(&mut self) -> bool {
-        self.is_exiting = true;
-        self.can_exit
-    }
-
-    fn clear_color(&self, _visuals: &egui::Visuals) -> egui::Rgba {
-        egui::Rgba::TRANSPARENT
-    }
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        // custom_window_frame(tx, ctx, frame, "egui with custom frame", |ui| {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal_top(|ui| {
-                ui.label("hello egui");
+            ui.vertical_centered_justified(|ui| {
+                crate::ui::file_selector(self, ui);
+
+                ui.horizontal(|ui| {
+                    ui.radio_value(&mut self.mode, Mode::PasswordDictionary, "password");
+                    ui.radio_value(&mut self.mode, Mode::Generation, "letter");
+                    ui.radio_value(&mut self.mode, Mode::Custom, "custom");
+                });
+                ui.end_row();
+
+                match self.mode {
+                    Mode::PasswordDictionary => {
+                        crate::ui::dictionary_selector(self, ui);
+                    }
+                    Mode::Generation => {
+                        ui.horizontal(|ui| {
+                            ui.toggle_value(&mut self.selected_charset[0], "digits");
+                            ui.toggle_value(&mut self.selected_charset[1], "lower");
+                            ui.toggle_value(&mut self.selected_charset[2], "upper");
+                            ui.toggle_value(&mut self.selected_charset[3], "special");
+                        });
+                    }
+                    Mode::Custom => {
+                        ui.horizontal(|ui| {
+                            ui.label("custom charset: ");
+                            ui.text_edit_singleline(&mut String::new());
+                        });
+                    }
+                }
+                ui.end_row();
+
+                if ui.button("start").clicked() {
+                    match self.mode {
+                        Mode::PasswordDictionary => {
+                            egui::Window::new("test dictionnary")
+                                .collapsible(false)
+                                .resizable(false)
+                                .show(ctx, |ui| {
+                                    ui.horizontal(|ui| {
+                                        if ui.button("Yes!").clicked() {
+                                            todo!()
+                                        }
+                                    })
+                                });
+                        }
+                        Mode::Generation => {}
+                        Mode::Custom => {}
+                    }
+                }
+
+                let progressbar = eframe::egui::ProgressBar::new(1.0);
+                ui.add(progressbar);
             });
         });
-
-        if self.is_exiting {
-            egui::Window::new("Do you want to quit?")
-                .collapsible(false)
-                .resizable(false)
-                .show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        if ui.button("Not yet").clicked() {
-                            self.is_exiting = false;
-                        }
-                        if ui.button("Yes!").clicked() {
-                            self.can_exit = true;
-                            frame.close()
-                        }
-                    })
-                });
-        }
     }
 }
 impl App {
     pub fn new(_cc: &eframe::CreationContext) -> Self {
         Self {
-            can_exit: false,
-            is_exiting: false,
+            mode: Mode::PasswordDictionary,
+            dictionary_path: None,
+            file_path: None,
+            selected_charset: [true, false, false, false],
         }
     }
 }

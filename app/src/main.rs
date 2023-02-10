@@ -1,22 +1,35 @@
 mod app;
+mod ui;
 
 use app::App;
-use eframe::epaint::vec2;
+use eframe::Result;
 
-fn main() {
+fn main() -> Result<()> {
     let options = eframe::NativeOptions {
-        decorated: true, //如果自定义边框，拖动界面可能会导致操作失效，如自定义界面的关闭按钮
-        transparent: true,
-        drag_and_drop_support: true,
-        min_window_size: Some(vec2(320.0, 100.0)),
+        resizable: false,
+        default_theme: eframe::Theme::Light,
+        drag_and_drop_support: false,
         ..Default::default()
     };
     eframe::run_native(
-        "egui demo",
+        "爆破",
         options,
         Box::new(|_cc| {
             let app = App::new(_cc);
             Box::new(app)
         }),
-    );
+    )
+}
+#[derive(PartialEq)]
+enum Mode {
+    PasswordDictionary,
+    Generation,
+    Custom,
+}
+#[derive(PartialEq)]
+enum Charset {
+    Lower,
+    Upper,
+    Digital,
+    Special,
 }
