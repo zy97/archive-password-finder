@@ -1,8 +1,9 @@
-use crate::finder_errors::FinderError;
 use indicatif::ProgressBar;
 use std::fs::File;
 use std::path::PathBuf;
 use zip::result::ZipError::UnsupportedArchive;
+
+use crate::errors::Errors;
 
 #[derive(Clone, Debug)]
 pub struct AesInfo {
@@ -30,13 +31,13 @@ impl AesInfo {
 pub fn validate_zip(
     file_path: &PathBuf,
     progress_bar: Option<&ProgressBar>,
-) -> Result<Option<AesInfo>, FinderError> {
+) -> Result<Option<AesInfo>, Errors> {
     let file = File::open(file_path)?;
     let mut archive = zip::ZipArchive::new(file)?;
     let aes_data = archive.get_aes_key_and_salt(0);
     let zip_result = archive.by_index(0);
     let aes_info = match zip_result {
-        Ok(_) => Err(FinderError::invalid_zip_error(
+        Ok(_) => Err(Errors::invalid_zip_error(
             "the archive is not encrypted".to_string(),
         )),
         Err(UnsupportedArchive(msg)) if msg == "Password required to decrypt file" => {
@@ -50,9 +51,7 @@ pub fn validate_zip(
                 Ok(None)
             }
         }
-        Err(e) => Err(FinderError::invalid_zip_error(format!(
-            "Unexpected error {e:?}"
-        ))),
+        Err(e) => Err(Errors::invalid_zip_error(format!("Unexpected error {e:?}"))),
     }?;
     match progress_bar {
         Some(progress_bar) => match &aes_info {

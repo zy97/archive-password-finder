@@ -4,11 +4,13 @@ use std::{
     path::PathBuf,
 };
 
+use crate::errors::Errors;
+
 pub struct PasswordReader {
     reader: BufReader<File>,
     line_buffer: String,
 }
-pub fn password_reader_count(dictionary_path: &PathBuf) -> Result<usize, std::io::Error> {
+pub fn password_reader_count(dictionary_path: &PathBuf) -> Result<usize, Errors> {
     let file = File::open(dictionary_path).expect("Unable to open file");
     let mut reader = BufReader::new(file);
     let mut total_count = 0;

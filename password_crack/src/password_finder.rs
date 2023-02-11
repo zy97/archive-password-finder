@@ -1,6 +1,6 @@
 use crossbeam_channel::{Receiver, Sender};
 
-use crate::finder_errors::FinderError;
+use crate::errors::Errors;
 use crate::password_finder::Strategy::{GenPasswords, PasswordFile};
 use crate::password_gen::password_generator_count;
 use crate::password_reader::password_reader_count;
@@ -23,7 +23,7 @@ pub fn password_finder(
     file_path: &str,
     workers: usize,
     strategy: Strategy,
-) -> Result<Option<String>, FinderError> {
+) -> Result<Option<String>, Errors> {
     let file_path = Path::new(file_path);
     let file_type = infer::get_from_path(&file_path).unwrap();
     //停止与线程关闭信号量
@@ -75,7 +75,7 @@ pub fn password_finder(
     }
     Ok(None)
 }
-fn get_password_count(strategy: &Strategy) -> Result<usize, FinderError> {
+fn get_password_count(strategy: &Strategy) -> Result<usize, Errors> {
     let total_password_count = match &strategy {
         GenPasswords {
             charsets,

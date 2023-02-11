@@ -1283,6 +1283,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "file-password-finder"
+version = "0.1.0"
+dependencies = [
+ "clap 4.1.4",
+ "itertools",
+ "num_cpus",
+ "password_crack",
+ "thiserror",
+]
+
+[[package]]
 name = "flate2"
 version = "1.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1628,9 +1639,9 @@ dependencies = [
 
 [[package]]
 name = "hermit-abi"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "856b5cb0902c2b6d65d5fd97dfa30f9b70c7538e770b98eab5ed52d8db923e01"
+checksum = "fed44880c466736ef9a5c5b5facefb5ed0785676d0c02d612db14e54f0d84286"
 
 [[package]]
 name = "hex"
@@ -1735,7 +1746,7 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22e18b0a45d56fe973d6db23972bf5bc46f988a4a2385deac9cc29572f09daef"
 dependencies = [
- "hermit-abi 0.3.0",
+ "hermit-abi 0.3.1",
  "io-lifetimes",
  "rustix",
  "windows-sys 0.45.0",
@@ -2336,6 +2347,26 @@ dependencies = [
  "base64ct",
  "rand_core 0.6.4",
  "subtle",
+]
+
+[[package]]
+name = "password_crack"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "criterion",
+ "crossbeam-channel",
+ "hmac",
+ "indicatif",
+ "infer",
+ "parse-display",
+ "pbkdf2",
+ "pdf",
+ "sevenz-rust",
+ "sha1",
+ "thiserror",
+ "unrar",
+ "zip",
 ]
 
 [[package]]
@@ -3898,29 +3929,6 @@ dependencies = [
  "sha1",
  "time",
  "zstd",
-]
-
-[[package]]
-name = "zip-password-finder"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "clap 4.1.4",
- "criterion",
- "crossbeam-channel",
- "hmac",
- "indicatif",
- "infer",
- "itertools",
- "num_cpus",
- "parse-display",
- "pbkdf2",
- "pdf",
- "sevenz-rust",
- "sha1",
- "thiserror",
- "unrar",
- "zip",
 ]
 
 [[package]]

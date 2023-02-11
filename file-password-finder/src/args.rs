@@ -1,10 +1,12 @@
-use crate::charsets::CharsetChoice;
-use crate::finder_errors::FinderError;
-use crate::finder_errors::FinderError::CliArgumentError;
+// use crate::finder_errors::FinderError;
+// use crate::finder_errors::FinderError::CliArgumentError;
 use clap::{crate_authors, crate_description, crate_name, crate_version, value_parser};
 use clap::{Arg, Command};
 use itertools::Itertools;
+use password_crack::CharsetChoice;
 use std::path::Path;
+
+use crate::cli_error::CLIError::{self, *};
 
 fn command() -> clap::Command {
     Command::new(crate_name!())
@@ -85,7 +87,7 @@ pub struct Arguments {
     pub custom_chars: Vec<char>,
 }
 
-pub fn get_args() -> Result<Arguments, FinderError> {
+pub fn get_args() -> Result<Arguments, CLIError> {
     let command = command();
     let matches = command.get_matches();
 

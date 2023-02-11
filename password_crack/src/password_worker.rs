@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::{
-    finder_errors::FinderError, password_finder::Strategy, password_gen::PasswordGenerator,
+    errors::Errors, password_finder::Strategy, password_gen::PasswordGenerator,
     password_reader::PasswordReader, Passwords,
 };
 
@@ -22,7 +22,7 @@ pub fn password_check(
     stop_workers_signal: Arc<AtomicBool>,
     progress_bar: ProgressBar,
     file_type: Option<Type>,
-) -> Result<Vec<JoinHandle<()>>, FinderError> {
+) -> Result<Vec<JoinHandle<()>>, Errors> {
     let mut worker_handles = Vec::with_capacity(worker_count);
 
     for i in 1..=worker_count {

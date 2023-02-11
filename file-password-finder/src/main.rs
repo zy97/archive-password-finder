@@ -1,24 +1,9 @@
 mod args;
-mod charsets;
-mod finder_errors;
-mod password_finder;
-mod password_gen;
-mod password_reader;
-mod password_worker;
-#[cfg(feature = "pdf")]
-mod pdf;
-mod progress_bar;
-#[cfg(feature = "rar")]
-mod rar;
-#[cfg(feature = "7z")]
-mod seven_z;
-mod zip;
+mod cli_error;
 
-use crate::password_finder::password_finder;
-use crate::password_finder::Strategy::{GenPasswords, PasswordFile};
 use args::{get_args, Arguments};
-use finder_errors::FinderError;
-use password_finder::Strategy;
+use cli_error::CLIError;
+use password_crack::{password_finder, Strategy};
 use std::path::PathBuf;
 use std::{path::Path, process::exit};
 fn main() {
@@ -31,7 +16,7 @@ fn main() {
         }
     })
 }
-fn main_result() -> Result<(), FinderError> {
+fn main_result() -> Result<(), CLIError> {
     let Arguments {
         input_file,
         charsets,
@@ -51,9 +36,9 @@ fn main_result() -> Result<(), FinderError> {
     let strategy = match password_dictionary {
         Some(dict_path) => {
             let path = Path::new(&dict_path);
-            PasswordFile(path.to_path_buf())
+            Strategy::PasswordFile(path.to_path_buf())
         }
-        None => GenPasswords {
+        None => Strategy::GenPasswords {
             charsets,
             min_password_len,
             max_password_len,
