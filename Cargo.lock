@@ -183,6 +183,7 @@ name = "app"
 version = "0.1.0"
 dependencies = [
  "eframe",
+ "password_crack",
  "rfd",
 ]
 

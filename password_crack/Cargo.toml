@@ -34,13 +34,7 @@ debug = true
 name = "password_generator"
 harness = false
 
-[profile.release]
-# opt-level = 'z'
-# strip = true
-# lto = true
-# codegen-units = 1
-# panic = "abort"
-# panic = "abort"
+
 [features]
 default = ["pdf"]
 7z = ["sevenz-rust"]
