@@ -9,4 +9,3 @@ edition = "2021"
 eframe = "0.21.0"
 rfd = "0.11.0"
 password_crack = { path = "../password_crack" }
-

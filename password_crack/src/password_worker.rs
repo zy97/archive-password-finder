@@ -118,6 +118,7 @@ mod test {
     #[test]
     fn test() {
         let now = Instant::now();
+
         let zip = "test1.7z";
         let mut command = Command::new(r".\7z.exe");
         command.arg("t");
