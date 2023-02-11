@@ -2,7 +2,7 @@ use std::{
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        mpsc, Arc,
     },
 };
 
@@ -16,7 +16,7 @@ pub fn password_check(
     passwords: Passwords,
     send_password_found: Sender<String>,
     stop_workers_signal: Arc<AtomicBool>,
-    send_progress_info: Sender<u64>,
+    send_progress_info: mpsc::Sender<u64>,
 ) {
     let batching_dalta = worker_count * 10;
     let first_worker = worker_index == 1;

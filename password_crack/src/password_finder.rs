@@ -7,7 +7,7 @@ use crate::password_reader::password_reader_count;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
 #[derive(Clone, Debug)]
 pub enum Strategy {
     PasswordFile(PathBuf),
@@ -22,14 +22,13 @@ pub fn password_finder(
     file_path: &str,
     workers: usize,
     strategy: Strategy,
-    send_progress_info: Sender<u64>,
+    send_progress_info: mpsc::Sender<u64>,
 ) -> Result<Option<String>, Errors> {
     let file_path = Path::new(file_path);
     let file_type = infer::get_from_path(&file_path).unwrap();
     //停止与线程关闭信号量
     let stop_workers_signal = Arc::new(AtomicBool::new(false));
     let stop_gen_signal = Arc::new(AtomicBool::new(false));
-
     let (send_found_password, receive_found_password): (Sender<String>, Receiver<String>) =
         crossbeam_channel::bounded(1);
 

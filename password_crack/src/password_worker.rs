@@ -4,7 +4,7 @@ use infer::Type;
 
 use std::{
     path::PathBuf,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{atomic::AtomicBool, mpsc, Arc},
     thread::{self, JoinHandle},
 };
 
@@ -20,7 +20,7 @@ pub fn password_check(
     send_password_found: Sender<String>,
     stop_workers_signal: Arc<AtomicBool>,
     file_type: Option<Type>,
-    send_progress_info: Sender<u64>,
+    send_progress_info: mpsc::Sender<u64>,
 ) -> Result<Vec<JoinHandle<()>>, Errors> {
     let mut worker_handles = Vec::with_capacity(worker_count);
 
