@@ -4,7 +4,6 @@ use crate::errors::Errors;
 use crate::password_finder::Strategy::{GenPasswords, PasswordFile};
 use crate::password_gen::password_generator_count;
 use crate::password_reader::password_reader_count;
-use crate::progress_bar::create_progress_bar;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -23,6 +22,7 @@ pub fn password_finder(
     file_path: &str,
     workers: usize,
     strategy: Strategy,
+    send_progress_info: Sender<u64>,
 ) -> Result<Option<String>, Errors> {
     let file_path = Path::new(file_path);
     let file_type = infer::get_from_path(&file_path).unwrap();
@@ -30,33 +30,22 @@ pub fn password_finder(
     let stop_workers_signal = Arc::new(AtomicBool::new(false));
     let stop_gen_signal = Arc::new(AtomicBool::new(false));
 
-    let total_password_count = get_password_count(&strategy)?;
-    // Fail early if the zip file is not valid
-
     let (send_found_password, receive_found_password): (Sender<String>, Receiver<String>) =
         crossbeam_channel::bounded(1);
-    let progress_bar = create_progress_bar(total_password_count as u64);
-    progress_bar.println(format!("Starting {workers} workers to test passwords"));
-    // match file_type {
-    //     Some(file) if file.mime_type() == "application/vnd.rar" => {}
-    //     Some(file) if file.mime_type() == "application/zip" => {}
-    //     Some(file) if file.mime_type() == "application/x-7z-compressed" => {}
-    //     Some(file) if file.mime_type() == "application/pdf" => {}
-    //     _ => {}
-    // }
+
     let worker_handles = crate::password_worker::password_check(
         workers,
         file_path.to_path_buf(),
         strategy.clone(),
         send_found_password.clone(),
         stop_workers_signal.clone(),
-        progress_bar.clone(),
         file_type,
+        send_progress_info,
     )?;
     // drop reference in `main` so that it disappears completely with workers for a clean shutdown
     drop(send_found_password);
 
-    match receive_found_password.recv() {
+    let res = match receive_found_password.recv() {
         Ok(password_found) => {
             // stop generating values first to avoid deadlock on channel
             stop_gen_signal.store(true, Ordering::Relaxed);
@@ -65,17 +54,13 @@ pub fn password_finder(
             for h in worker_handles {
                 h.join().unwrap();
             }
-            progress_bar.abandon();
-            println!("Found password: {}", password_found);
+            Some(password_found)
         }
-        Err(_) => {
-            progress_bar.abandon();
-            println!("Password not found");
-        }
-    }
-    Ok(None)
+        Err(_) => None,
+    };
+    Ok(res)
 }
-fn get_password_count(strategy: &Strategy) -> Result<usize, Errors> {
+pub fn get_password_count(strategy: &Strategy) -> Result<usize, Errors> {
     let total_password_count = match &strategy {
         GenPasswords {
             charsets,

@@ -1,5 +1,3 @@
-// use crate::finder_errors::FinderError;
-// use crate::finder_errors::FinderError::CliArgumentError;
 use clap::{crate_authors, crate_description, crate_name, crate_version, value_parser};
 use clap::{Arg, Command};
 use itertools::Itertools;

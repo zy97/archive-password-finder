@@ -1,6 +1,5 @@
 use crossbeam_channel::Sender;
 
-use indicatif::ProgressBar;
 use infer::Type;
 
 use std::{
@@ -20,18 +19,17 @@ pub fn password_check(
     strategy: Strategy,
     send_password_found: Sender<String>,
     stop_workers_signal: Arc<AtomicBool>,
-    progress_bar: ProgressBar,
     file_type: Option<Type>,
+    send_progress_info: Sender<u64>,
 ) -> Result<Vec<JoinHandle<()>>, Errors> {
     let mut worker_handles = Vec::with_capacity(worker_count);
 
     for i in 1..=worker_count {
         let strategy = strategy.clone();
         let file_path = file_path.clone();
-        // let aes_info = aes_info.clone();
         let send_password_found = send_password_found.clone();
         let stop_workers_signal = stop_workers_signal.clone();
-        let progress_bar = progress_bar.clone();
+        let send_progress_info = send_progress_info.clone();
         let join_handle = thread::Builder::new()
             .name(format!("worker-{}", i))
             .spawn(move || {
@@ -62,7 +60,7 @@ pub fn password_check(
                             passwords,
                             send_password_found,
                             stop_workers_signal,
-                            progress_bar,
+                            send_progress_info,
                         )
                     }
                     Some(file) if file.mime_type() == "application/zip" => {
@@ -73,7 +71,7 @@ pub fn password_check(
                             passwords,
                             send_password_found,
                             stop_workers_signal,
-                            progress_bar,
+                            send_progress_info,
                         )
                     }
                     #[cfg(feature = "7z")]
@@ -85,7 +83,7 @@ pub fn password_check(
                             passwords,
                             send_password_found,
                             stop_workers_signal,
-                            progress_bar,
+                            send_progress_info,
                         )
                     }
                     #[cfg(feature = "pdf")]
@@ -97,14 +95,14 @@ pub fn password_check(
                             passwords,
                             send_password_found,
                             stop_workers_signal,
-                            progress_bar,
+                            send_progress_info,
                         )
                     }
                     _ => {
-                        progress_bar.abandon_with_message(format!(
-                            " {} is not supported",
-                            file_path.display()
-                        ));
+                        // progress_bar.abandon_with_message(format!(
+                        //     " {} is not supported",
+                        //     file_path.display()
+                        // ));
                     }
                 }
             })

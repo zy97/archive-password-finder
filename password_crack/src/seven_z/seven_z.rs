@@ -7,7 +7,6 @@ use std::{
 };
 
 use crossbeam_channel::Sender;
-use indicatif::ProgressBar;
 
 use crate::{filter_for_worker_index, Passwords};
 pub fn password_check(
@@ -17,13 +16,12 @@ pub fn password_check(
     passwords: Passwords,
     send_password_found: Sender<String>,
     stop_workers_signal: Arc<AtomicBool>,
-    progress_bar: ProgressBar,
+    send_progress_info: Sender<u64>,
 ) {
     let batching_dalta = worker_count * 10;
     let first_worker = worker_index == 1;
     let progress_bar_delta: u64 = (batching_dalta * worker_count) as u64;
     let passwords = filter_for_worker_index(passwords, worker_count, worker_index);
-    // let path = Cursor::new(fs::read(senven_z_file));
     let mut processed_delta = 0;
     for password in passwords {
         let res = sevenz_rust::decompress_file_with_password(
@@ -42,7 +40,9 @@ pub fn password_check(
         //do not check internal flags too often
         if processed_delta == batching_dalta {
             if first_worker {
-                progress_bar.inc(progress_bar_delta);
+                send_progress_info
+                    .send(progress_bar_delta)
+                    .expect("Send progress should not fail");
             }
             if stop_workers_signal.load(Ordering::Relaxed) {
                 break;

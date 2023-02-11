@@ -6,7 +6,6 @@ mod password_reader;
 mod password_worker;
 #[cfg(feature = "pdf")]
 mod pdf;
-mod progress_bar;
 #[cfg(feature = "rar")]
 mod rar;
 #[cfg(feature = "7z")]
@@ -15,8 +14,8 @@ mod zip;
 
 pub use charsets::CharsetChoice;
 pub use errors::Errors;
-pub use password_finder::password_finder;
 pub use password_finder::Strategy;
+pub use password_finder::{get_password_count, password_finder};
 
 type Passwords = Box<dyn Iterator<Item = String>>;
 fn filter_for_worker_index(

@@ -9,7 +9,6 @@ edition = "2021"
 # 性能比官方的强，所以选择它 
 thiserror = "1.0.38"
 crossbeam-channel = "0.5.6"
-indicatif = { version = "0.17.3", features = [] }
 zip = { version = "0.6.3", git = "https://github.com/agourlay/zip.git", branch = "zip-password-finder" } # dedicated fork
 # permutator = "0.4.3"
 unrar = { version = "0.4.4", optional = true }

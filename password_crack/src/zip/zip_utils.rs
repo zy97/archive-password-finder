@@ -1,4 +1,3 @@
-use indicatif::ProgressBar;
 use std::fs::File;
 use std::path::PathBuf;
 use zip::result::ZipError::UnsupportedArchive;
@@ -28,10 +27,7 @@ impl AesInfo {
 }
 
 // validate that the zip requires a password
-pub fn validate_zip(
-    file_path: &PathBuf,
-    progress_bar: Option<&ProgressBar>,
-) -> Result<Option<AesInfo>, Errors> {
+pub fn validate_zip(file_path: &PathBuf, show_info: bool) -> Result<Option<AesInfo>, Errors> {
     let file = File::open(file_path)?;
     let mut archive = zip::ZipArchive::new(file)?;
     let aes_data = archive.get_aes_key_and_salt(0);
@@ -53,16 +49,17 @@ pub fn validate_zip(
         }
         Err(e) => Err(Errors::invalid_zip_error(format!("Unexpected error {e:?}"))),
     }?;
-    match progress_bar {
-        Some(progress_bar) => match &aes_info {
-            Some(aes_info) => progress_bar.println(format!(
+    if show_info {
+        match &aes_info {
+            Some(aes_info) => println!(
                 "Archive is encrypted with AES{} - expect a long wait time",
                 aes_info.aes_key_length * 8
-            )),
-            None => progress_bar
-                .println("Archive is encrypted with ZipCrypto - expect a much faster throughput"),
-        },
-        None => {}
+            ),
+            None => {
+                println!("Archive is encrypted with ZipCrypto - expect a much faster throughput")
+            }
+        }
     }
+
     Ok(aes_info)
 }

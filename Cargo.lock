@@ -1287,6 +1287,8 @@ name = "file-password-finder"
 version = "0.1.0"
 dependencies = [
  "clap 4.1.4",
+ "crossbeam-channel",
+ "indicatif",
  "itertools",
  "num_cpus",
  "password_crack",
@@ -2357,7 +2359,6 @@ dependencies = [
  "criterion",
  "crossbeam-channel",
  "hmac",
- "indicatif",
  "infer",
  "parse-display",
  "pbkdf2",
