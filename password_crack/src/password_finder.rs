@@ -39,7 +39,7 @@ pub fn password_finder(
         send_found_password.clone(),
         stop_workers_signal.clone(),
         file_type,
-        send_progress_info,
+        send_progress_info.clone(),
     )?;
     // drop reference in `main` so that it disappears completely with workers for a clean shutdown
     drop(send_found_password);
@@ -57,6 +57,7 @@ pub fn password_finder(
         }
         Err(_) => None,
     };
+    drop(send_progress_info);
     Ok(res)
 }
 pub fn get_password_count(strategy: &Strategy) -> Result<usize, Errors> {

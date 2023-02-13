@@ -183,8 +183,10 @@ name = "app"
 version = "0.1.0"
 dependencies = [
  "eframe",
+ "num_cpus",
  "password_crack",
  "rfd",
+ "time",
 ]
 
 [[package]]

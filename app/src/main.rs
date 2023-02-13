@@ -22,7 +22,7 @@ fn main() -> Result<()> {
     )
 }
 #[derive(PartialEq)]
-enum Mode {
+pub enum Mode {
     PasswordDictionary,
     Generation,
     Custom,

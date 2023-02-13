@@ -6,6 +6,7 @@ use std::{
 
 use eframe::egui::{self};
 use password_crack::{get_password_count, password_finder, Strategy};
+use time::OffsetDateTime;
 
 use crate::{font::setup_custom_fonts, ui::progress_bar, Mode};
 
@@ -13,7 +14,8 @@ use crate::{font::setup_custom_fonts, ui::progress_bar, Mode};
 pub struct App {
     pub file_path: Option<String>,
     pub dictionary_path: Option<String>,
-    mode: Mode,
+    pub mode: Mode,
+    pub workers_count: usize,
     pub selected_charset: [bool; 4],
     pub password_count: usize,
     pub tested_count: usize,
@@ -21,10 +23,19 @@ pub struct App {
     strategy: Option<Strategy>,
     running: bool,
     pub find_result: Option<Option<String>>,
-    // sender: Option<Sender<u64>>,
     progress_receiver: Option<Receiver<u64>>,
     password_receiver: Option<Receiver<Option<Option<String>>>>,
-    timer:time
+    pub start_time: Option<OffsetDateTime>,
+    pub current_time: Option<OffsetDateTime>,
+    // timer:time
+}
+impl App {
+    fn reset(self: &mut Self) {
+        self.start_time = Some(OffsetDateTime::now_utc());
+        self.current_time = None;
+        self.tested_count = 0;
+        self.find_result = None;
+    }
 }
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -41,17 +52,13 @@ impl eframe::App for App {
             // },
             None => {}
         };
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.ctx().request_repaint();
             ui.vertical_centered_justified(|ui| {
                 crate::ui::file_selector(self, ui);
-                ui.horizontal(|ui| {
-                    ui.radio_value(&mut self.mode, Mode::PasswordDictionary, "字典");
-                    ui.radio_value(&mut self.mode, Mode::Generation, "字符");
-                    ui.radio_value(&mut self.mode, Mode::Custom, "自定义");
-                });
-                ui.end_row();
-
+                crate::ui::mode_selector(self, ui);
+                crate::ui::worker_slider(self, ui);
                 match self.mode {
                     Mode::PasswordDictionary => {
                         crate::ui::dictionary_selector(self, ui);
@@ -86,14 +93,17 @@ impl eframe::App for App {
                             self.progress_receiver = Some(receive_progress_info);
                             self.password_receiver = Some(receive_password_find);
                             self.password_count = get_password_count(&strategy1.unwrap()).unwrap();
+                            let work_count = self.workers_count;
+                            self.reset();
                             thread::spawn(move || {
                                 match password_finder(
                                     &file.unwrap(),
-                                    4,
+                                    work_count,
                                     strategy.unwrap(),
                                     send_progress_info,
                                 ) {
                                     Ok(Some(password)) => {
+                                        println!("password: {}", password);
                                         send_password_find.send(Some(Some(password))).unwrap();
                                     }
                                     Ok(None) => {
@@ -112,13 +122,17 @@ impl eframe::App for App {
                 progress_bar(self, ui);
                 if self.progress_receiver.is_some() {
                     if let Ok(r) = self.progress_receiver.as_ref().unwrap().try_recv() {
+                        self.current_time = Some(OffsetDateTime::now_utc());
                         self.tested_count += r as usize;
                         self.progress = self.tested_count as f32 / self.password_count as f32;
+                        println!("progress: {}", self.progress)
                     }
                 }
                 if self.password_receiver.is_some() {
                     if let Ok(r) = self.password_receiver.as_ref().unwrap().try_recv() {
                         self.find_result = r;
+                        self.running = false;
+                        self.progress_receiver = None;
                     }
                 }
             });
@@ -140,9 +154,11 @@ impl App {
             running: false,
             find_result: None,
             tested_count: 0,
-            // sender: None,
             progress_receiver: None,
             password_receiver: None,
+            start_time: None,
+            current_time: None,
+            workers_count: num_cpus::get_physical(),
         }
     }
 }
