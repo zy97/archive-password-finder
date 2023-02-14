@@ -6,6 +6,8 @@ pub enum Errors {
     StdIoError { e: std::io::Error },
     #[error("Invalid zip file error - {message}")]
     InvalidZip { message: String },
+    #[error("{message}")]
+    MathError { message: String },
 }
 impl Errors {
     pub fn invalid_zip_error(message: String) -> Self {

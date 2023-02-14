@@ -23,7 +23,6 @@ pub fn password_check(
     send_progress_info: mpsc::Sender<u64>,
 ) -> Result<Vec<JoinHandle<()>>, Errors> {
     let mut worker_handles = Vec::with_capacity(worker_count);
-
     for i in 1..=worker_count {
         let strategy = strategy.clone();
         let file_path = file_path.clone();
@@ -42,6 +41,7 @@ pub fn password_check(
                         let c = charsets.clone();
                         let password_gen_worker =
                             PasswordGenerator::new(c, *min_password_len, *max_password_len);
+                        println!("charsets: {:?}", charsets);
 
                         Box::new(password_gen_worker)
                     }
@@ -106,7 +106,7 @@ pub fn password_check(
                     }
                 }
             })
-            .unwrap();
+            .expect("667788");
         worker_handles.push(join_handle);
     }
     Ok(worker_handles)

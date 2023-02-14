@@ -51,11 +51,14 @@ pub fn password_finder(
             // stop workers
             stop_workers_signal.store(true, Ordering::Relaxed);
             for h in worker_handles {
-                h.join().unwrap();
+                h.join().expect("123123");
             }
             Some(password_found)
         }
-        Err(_) => None,
+        Err(e) => {
+            println!("66666{}", e);
+            None
+        }
     };
     drop(send_progress_info);
     Ok(res)
@@ -67,7 +70,7 @@ pub fn get_password_count(strategy: &Strategy) -> Result<usize, Errors> {
             min_password_len,
             max_password_len,
         } => password_generator_count(charsets, *min_password_len, *max_password_len),
-        PasswordFile(password_file_path) => password_reader_count(password_file_path)?,
+        PasswordFile(password_file_path) => password_reader_count(password_file_path),
     };
-    Ok(total_password_count)
+    total_password_count
 }

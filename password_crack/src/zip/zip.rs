@@ -29,7 +29,7 @@ pub fn password_check(
     stop_workers_signal: Arc<AtomicBool>,
     send_progress_info: mpsc::Sender<u64>,
 ) {
-    let batching_dalta = worker_count * 500;
+    // let batching_dalta = worker_count * 500;
     let first_worker = worker_index == 1;
     let aes_info = if first_worker {
         validate_zip(&zip_file, true).unwrap()
@@ -37,7 +37,7 @@ pub fn password_check(
         validate_zip(&zip_file, false).unwrap()
     };
 
-    let progress_bar_delta: u64 = (batching_dalta * worker_count) as u64;
+    // let progress_bar_delta: u64 = (batching_dalta * worker_count) as u64;
     let passwords = filter_for_worker_index(passwords, worker_count, worker_index);
 
     // AES info bindings
@@ -67,6 +67,15 @@ pub fn password_check(
 
     let mut processed_delta = 0;
     for password in passwords {
+        // if password == "99881122" {
+        //     println!("Password 99881122");
+
+        //     return;
+        // } else {
+        //     println!("{}", password);
+        //     continue;
+        // }
+
         let password_bytes = password.as_bytes();
         let mut potential_match = true;
 
@@ -105,18 +114,15 @@ pub fn password_check(
                 Err(e) => panic!("Unexpected error {e:?}"),
             }
         }
-        processed_delta += 1;
-        //do not check internal flags too often
-        if processed_delta == batching_dalta {
-            if first_worker {
-                send_progress_info
-                    .send(progress_bar_delta)
-                    .expect("Send progress should not fail");
-            }
-            if stop_workers_signal.load(Ordering::Relaxed) {
-                break;
-            }
-            processed_delta = 0;
+        send_progress_info
+            .send(1)
+            .expect("Send progress should not fail");
+        if stop_workers_signal.load(Ordering::Relaxed) {
+            break;
         }
+        // //do not check internal flags too often
+        // if processed_delta == batching_dalta {
+        //     processed_delta = 0;
+        // }
     }
 }

@@ -3,7 +3,7 @@ mod cli_error;
 
 use args::{get_args, Arguments};
 use cli_error::CLIError;
-use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
+use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle, ProgressIterator};
 use password_crack::{get_password_count, password_finder, Strategy};
 use std::sync::mpsc::channel;
 use std::thread;

@@ -62,11 +62,32 @@ pub fn dictionary_selector(app: &mut App, ui: &mut Ui) {
     ui.end_row();
 }
 
+pub fn password_length(app: &mut App, ui: &mut Ui) {
+    if app.min_pasword_length >= app.max_pasword_length {
+        app.max_pasword_length = app.min_pasword_length;
+    }
+    ui.horizontal(|ui| {
+        ui.label("最短密码长度：");
+        let min_max = app.min_pasword_length;
+        let min_slider = Slider::new(&mut app.min_pasword_length, 1..=16);
+        ui.label("最长密码长度：");
+        let max_slider = Slider::new(&mut app.max_pasword_length, min_max.to_owned()..=16);
+        ui.add(min_slider);
+        ui.add_space(32.0);
+        ui.add(max_slider);
+    });
+    ui.end_row();
+}
+
 pub fn progress_bar(app: &mut App, ui: &mut Ui) {
     let progressbar = eframe::egui::ProgressBar::new(app.progress).show_percentage();
     ui.add(progressbar);
     ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-        ui.label(format!("{}/{}", app.tested_count, app.password_count));
+        let msg = match app.password_count.as_ref() {
+            Ok(count) => count.to_string(),
+            Err(err) => err.to_owned(),
+        };
+        ui.label(format!("{}/{}", app.tested_count, msg));
 
         if app.current_time.is_some() {
             let time = app.current_time.unwrap() - app.start_time.unwrap();

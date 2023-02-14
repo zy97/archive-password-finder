@@ -3,7 +3,7 @@ mod font;
 mod ui;
 
 use app::App;
-use eframe::Result;
+use eframe::{egui, Result};
 
 fn main() -> Result<()> {
     let options = eframe::NativeOptions {
@@ -33,4 +33,7 @@ enum Charset {
     Upper,
     Digital,
     Special,
+}
+pub trait View {
+    fn ui(&mut self, ui: &mut egui::Ui);
 }

@@ -1,13 +1,25 @@
 use ahash::AHashMap;
 
-pub fn password_generator_count(charset: &Vec<char>, min_size: usize, max_size: usize) -> usize {
+use crate::Errors;
+pub fn password_generator_count(
+    charset: &Vec<char>,
+    min_size: usize,
+    max_size: usize,
+) -> Result<usize, Errors> {
     // compute the number of passwords to generate
     let charset_len = charset.len();
-    let mut total_password_count = 0;
+    let mut total_password_count: usize = 0;
     for i in min_size..=max_size {
-        total_password_count += charset_len.pow(i as u32)
+        let a = charset_len.checked_pow(i as u32).ok_or(Errors::MathError {
+            message: String::from("算术溢出"),
+        })?;
+        total_password_count = total_password_count
+            .checked_add(a)
+            .ok_or(Errors::MathError {
+                message: String::from("算术溢出"),
+            })?;
     }
-    total_password_count
+    Ok(total_password_count)
 }
 pub struct PasswordGenerator {
     charset: Vec<char>,
@@ -117,7 +129,7 @@ impl PasswordGenerator {
         let current_index = current_len - 1;
 
         let generated_count = 0;
-        let total_to_generate = password_generator_count(&charset, min_size, max_size);
+        let total_to_generate = password_generator_count(&charset, min_size, max_size).unwrap();
 
         PasswordGenerator {
             charset,
@@ -131,6 +143,22 @@ impl PasswordGenerator {
             generated_count,
             total_to_generate,
             password,
+        }
+    }
+}
+#[cfg(test)]
+
+mod test {
+    use super::PasswordGenerator;
+
+    #[test]
+    fn tsd() {
+        let sdf =
+            PasswordGenerator::new(vec!['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], 8, 8);
+        for s in sdf {
+            if s == "99881122" {
+                println!("666")
+            }
         }
     }
 }

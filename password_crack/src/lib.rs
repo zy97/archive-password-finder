@@ -25,7 +25,7 @@ fn filter_for_worker_index(
 ) -> Passwords {
     if worker_count > 1 {
         Box::new(passwords.enumerate().filter_map(move |(index, password)| {
-            if index % worker_count == worker_index {
+            if index % worker_count == worker_index - 1 {
                 Some(password)
             } else {
                 None
