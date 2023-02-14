@@ -17,7 +17,7 @@ pub use errors::Errors;
 pub use password_finder::Strategy;
 pub use password_finder::{get_password_count, password_finder};
 
-type Passwords = Box<dyn Iterator<Item = String>>;
+type Passwords = Box<dyn Iterator<Item = String> + Send>;
 fn filter_for_worker_index(
     passwords: Passwords,
     worker_count: usize,

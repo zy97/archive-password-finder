@@ -50,7 +50,7 @@ fn main_result() -> Result<(), CLIError> {
     let progress_bar = create_progress_bar(total_passwords as u64);
     let workers = workers.unwrap_or_else(num_cpus::get_physical);
     println!("Starting {} workers to test passwords", workers);
-    let (send_progress_info, receive_progress_info) = channel();
+    let (send_progress_info, receive_progress_info) = crossbeam_channel::unbounded();
 
     thread::spawn(move || loop {
         match receive_progress_info.recv() {

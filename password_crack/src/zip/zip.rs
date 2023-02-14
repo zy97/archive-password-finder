@@ -1,10 +1,10 @@
 use std::{
     fs::{self, File},
     io::{BufReader, Cursor, Read, Seek},
-    path::PathBuf,
+    path::Path,
     sync::{
         atomic::{AtomicBool, Ordering},
-        mpsc, Arc,
+        Arc,
     },
 };
 
@@ -13,7 +13,7 @@ use hmac::Hmac;
 use sha1::Sha1;
 use zip::ZipArchive;
 
-use crate::{filter_for_worker_index, Passwords};
+use crate::Passwords;
 
 use super::zip_utils::validate_zip;
 
@@ -23,23 +23,21 @@ impl ZipReader for BufReader<fs::File> {}
 pub fn password_check(
     worker_count: usize,
     worker_index: usize,
-    zip_file: PathBuf,
+    zip_file: &Path,
     passwords: Passwords,
     send_password_found: Sender<String>,
     stop_workers_signal: Arc<AtomicBool>,
-    send_progress_info: mpsc::Sender<u64>,
+    send_progress_info: Sender<u64>,
 ) {
     let batching_dalta = worker_count * 500;
     let first_worker = worker_index == 1;
     let progress_bar_delta: u64 = (batching_dalta * worker_count) as u64;
 
     let aes_info = if first_worker {
-        validate_zip(&zip_file, true).unwrap()
+        validate_zip(zip_file, true).unwrap()
     } else {
-        validate_zip(&zip_file, false).unwrap()
+        validate_zip(zip_file, false).unwrap()
     };
-
-    let passwords = filter_for_worker_index(passwords, worker_count, worker_index);
 
     // AES info bindings
     let mut derived_key_len = 0;

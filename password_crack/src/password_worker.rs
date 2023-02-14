@@ -3,60 +3,60 @@ use crossbeam_channel::Sender;
 use infer::Type;
 
 use std::{
-    path::PathBuf,
-    sync::{atomic::AtomicBool, mpsc, Arc},
+    path::Path,
+    sync::{atomic::AtomicBool, Arc},
     thread::{self, JoinHandle},
 };
 
 use crate::{
-    errors::Errors, password_finder::Strategy, password_gen::PasswordGenerator,
-    password_reader::PasswordReader, Passwords,
+    errors::Errors, filter_for_worker_index, password_finder::Strategy,
+    password_gen::PasswordGenerator, password_reader::PasswordReader, Passwords,
 };
 
 pub fn password_check(
     worker_count: usize,
-    file_path: PathBuf,
+    file_path: &Path,
     strategy: Strategy,
     send_password_found: Sender<String>,
     stop_workers_signal: Arc<AtomicBool>,
     file_type: Option<Type>,
-    send_progress_info: mpsc::Sender<u64>,
+    send_progress_info: Sender<u64>,
 ) -> Result<Vec<JoinHandle<()>>, Errors> {
     let mut worker_handles = Vec::with_capacity(worker_count);
     for i in 1..=worker_count {
-        let strategy = strategy.clone();
-        let file_path = file_path.clone();
+        let file_path = file_path.clone().to_path_buf();
         let send_password_found = send_password_found.clone();
         let stop_workers_signal = stop_workers_signal.clone();
         let send_progress_info = send_progress_info.clone();
+        let mut passwords: Passwords = match &strategy {
+            Strategy::GenPasswords {
+                charsets,
+                min_password_len,
+                max_password_len,
+            } => {
+                let c = charsets.clone();
+                let password_gen_worker =
+                    PasswordGenerator::new(c, *min_password_len, *max_password_len);
+
+                Box::new(password_gen_worker)
+            }
+            Strategy::PasswordFile(password_file_path) => {
+                let password_reader = PasswordReader::new(password_file_path);
+                Box::new(password_reader)
+            }
+        };
+        passwords = filter_for_worker_index(passwords, worker_count, i);
+
         let join_handle = thread::Builder::new()
             .name(format!("worker-{}", i))
             .spawn(move || {
-                let passwords: Passwords = match &strategy {
-                    Strategy::GenPasswords {
-                        charsets,
-                        min_password_len,
-                        max_password_len,
-                    } => {
-                        let c = charsets.clone();
-                        let password_gen_worker =
-                            PasswordGenerator::new(c, *min_password_len, *max_password_len);
-                        println!("charsets: {:?}", charsets);
-
-                        Box::new(password_gen_worker)
-                    }
-                    Strategy::PasswordFile(password_file_path) => {
-                        let password_reader = PasswordReader::new(password_file_path.clone());
-                        Box::new(password_reader)
-                    }
-                };
                 match file_type {
                     #[cfg(feature = "rar")]
                     Some(file) if file.mime_type() == "application/vnd.rar" => {
                         crate::rar::password_check(
                             worker_count,
                             i,
-                            file_path,
+                            &file_path,
                             passwords,
                             send_password_found,
                             stop_workers_signal,
@@ -67,7 +67,7 @@ pub fn password_check(
                         crate::zip::password_check(
                             worker_count,
                             i,
-                            file_path,
+                            &file_path,
                             passwords,
                             send_password_found,
                             stop_workers_signal,
@@ -79,7 +79,7 @@ pub fn password_check(
                         crate::seven_z::password_check(
                             worker_count,
                             i,
-                            file_path,
+                            &file_path,
                             passwords,
                             send_password_found,
                             stop_workers_signal,
@@ -91,7 +91,7 @@ pub fn password_check(
                         crate::pdf::password_check(
                             worker_count,
                             i,
-                            file_path,
+                            &file_path,
                             passwords,
                             send_password_found,
                             stop_workers_signal,
@@ -106,7 +106,7 @@ pub fn password_check(
                     }
                 }
             })
-            .expect("667788");
+            .unwrap();
         worker_handles.push(join_handle);
     }
     Ok(worker_handles)

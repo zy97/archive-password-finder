@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     io::{BufRead, BufReader},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use crate::errors::Errors;
@@ -30,8 +30,8 @@ pub fn password_reader_count(dictionary_path: &PathBuf) -> Result<usize, Errors>
     Ok(total_count)
 }
 impl PasswordReader {
-    pub fn new(dictionary_path: PathBuf) -> Self {
-        let file = File::open(&dictionary_path).expect("Unable to open file");
+    pub fn new(dictionary_path: &Path) -> Self {
+        let file = File::open(dictionary_path).expect("Unable to open file");
         let reader = BufReader::new(file);
         PasswordReader {
             reader,

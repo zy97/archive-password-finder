@@ -1,5 +1,5 @@
 use std::{
-    path::PathBuf,
+    path::Path,
     sync::{
         atomic::{AtomicBool, Ordering},
         mpsc, Arc,
@@ -9,20 +9,19 @@ use std::{
 use crossbeam_channel::Sender;
 use unrar::Archive;
 
-use crate::{filter_for_worker_index, Passwords};
+use crate::Passwords;
 pub fn password_check(
     worker_count: usize,
     worker_index: usize,
-    rar_file: PathBuf,
+    rar_file: &Path,
     passwords: Passwords,
     send_password_found: Sender<String>,
     stop_workers_signal: Arc<AtomicBool>,
-    send_progress_info: mpsc::Sender<u64>,
+    send_progress_info: Sender<u64>,
 ) {
     let batching_dalta = worker_count * 500;
     let first_worker = worker_index == 1;
     let progress_bar_delta: u64 = (batching_dalta * worker_count) as u64;
-    let passwords = filter_for_worker_index(passwords, worker_count, worker_index);
 
     let mut processed_delta = 0;
     for password in passwords {

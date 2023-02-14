@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::Path;
 use zip::result::ZipError::UnsupportedArchive;
 
 use crate::errors::Errors;
@@ -27,7 +27,7 @@ impl AesInfo {
 }
 
 // validate that the zip requires a password
-pub fn validate_zip(file_path: &PathBuf, show_info: bool) -> Result<Option<AesInfo>, Errors> {
+pub fn validate_zip(file_path: &Path, show_info: bool) -> Result<Option<AesInfo>, Errors> {
     let file = File::open(file_path)?;
     let mut archive = zip::ZipArchive::new(file)?;
     let aes_data = archive.get_aes_key_and_salt(0);
