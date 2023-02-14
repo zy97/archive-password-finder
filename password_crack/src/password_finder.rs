@@ -31,7 +31,6 @@ pub fn password_finder(
     let stop_gen_signal = Arc::new(AtomicBool::new(false));
     let (send_found_password, receive_found_password): (Sender<String>, Receiver<String>) =
         crossbeam_channel::bounded(1);
-
     let worker_handles = crate::password_worker::password_check(
         workers,
         file_path.to_path_buf(),
