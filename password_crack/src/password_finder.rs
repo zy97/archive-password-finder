@@ -6,7 +6,7 @@ use crate::password_gen::password_generator_count;
 use crate::password_reader::password_reader_count;
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 #[derive(Clone, Debug)]
 pub enum Strategy {
@@ -22,8 +22,10 @@ pub fn password_finder(
     file_path: &str,
     workers: usize,
     strategy: Strategy,
-    send_progress_info: Sender<u64>,
-) -> Result<Option<String>, Errors> {
+    t: Arc<AtomicU64>,
+) -> Result<Option<String>, Errors>
+where
+{
     let file_path = Path::new(file_path);
     let file_type = infer::get_from_path(&file_path)?;
     //停止与线程关闭信号量
@@ -38,7 +40,7 @@ pub fn password_finder(
         send_found_password.clone(),
         stop_workers_signal.clone(),
         file_type,
-        send_progress_info.clone(),
+        t,
     )?;
     // drop reference in `main` so that it disappears completely with workers for a clean shutdown
     drop(send_found_password);
@@ -50,7 +52,7 @@ pub fn password_finder(
             // stop workers
             stop_workers_signal.store(true, Ordering::Relaxed);
             for h in worker_handles {
-                h.join().expect("123123");
+                h.join().unwrap();
             }
             Some(password_found)
         }
@@ -59,7 +61,7 @@ pub fn password_finder(
             None
         }
     };
-    drop(send_progress_info);
+    // drop(send_progress_info);
     Ok(res)
 }
 pub fn get_password_count(strategy: &Strategy) -> Result<usize, Errors> {

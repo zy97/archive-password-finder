@@ -3,7 +3,7 @@ use std::{
     io::{BufReader, Cursor, Read, Seek},
     path::Path,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
 };
@@ -27,7 +27,7 @@ pub fn password_check(
     passwords: Passwords,
     send_password_found: Sender<String>,
     stop_workers_signal: Arc<AtomicBool>,
-    send_progress_info: Sender<u64>,
+    t: Arc<AtomicU64>,
 ) {
     let batching_dalta = worker_count * 500;
     let first_worker = worker_index == 1;
@@ -109,9 +109,13 @@ pub fn password_check(
         // //do not check internal flags too often
         if processed_delta == batching_dalta {
             if first_worker {
-                send_progress_info
-                    .send(progress_bar_delta)
-                    .expect("Send progress should not fail");
+                // send_progress_info
+                //     .send(progress_bar_delta)
+                //     .expect("Send progress should not fail");
+                // &callback(1);
+                // let sdf = Arc::clone(&callback);
+                // callback(progress_bar_delta);
+                t.fetch_add(progress_bar_delta, Ordering::SeqCst);
             }
 
             if stop_workers_signal.load(Ordering::Relaxed) {

@@ -4,7 +4,10 @@ use infer::Type;
 
 use std::{
     path::Path,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, AtomicU64},
+        Arc,
+    },
     thread::{self, JoinHandle},
 };
 
@@ -20,14 +23,15 @@ pub fn password_check(
     send_password_found: Sender<String>,
     stop_workers_signal: Arc<AtomicBool>,
     file_type: Option<Type>,
-    send_progress_info: Sender<u64>,
+    tested_count: Arc<AtomicU64>,
 ) -> Result<Vec<JoinHandle<()>>, Errors> {
     let mut worker_handles = Vec::with_capacity(worker_count);
+
     for i in 1..=worker_count {
         let file_path = file_path.clone().to_path_buf();
         let send_password_found = send_password_found.clone();
         let stop_workers_signal = stop_workers_signal.clone();
-        let send_progress_info = send_progress_info.clone();
+        // let send_progress_info = send_progress_info.clone();
         let mut passwords: Passwords = match &strategy {
             Strategy::GenPasswords {
                 charsets,
@@ -47,6 +51,7 @@ pub fn password_check(
         };
         passwords = filter_for_worker_index(passwords, worker_count, i);
 
+        let tested_count = Arc::clone(&tested_count);
         let join_handle = thread::Builder::new()
             .name(format!("worker-{}", i))
             .spawn(move || {
@@ -60,7 +65,7 @@ pub fn password_check(
                             passwords,
                             send_password_found,
                             stop_workers_signal,
-                            send_progress_info,
+                            tested_count,
                         )
                     }
                     Some(file) if file.mime_type() == "application/zip" => {
@@ -71,7 +76,7 @@ pub fn password_check(
                             passwords,
                             send_password_found,
                             stop_workers_signal,
-                            send_progress_info,
+                            tested_count,
                         )
                     }
                     #[cfg(feature = "7z")]
@@ -83,7 +88,7 @@ pub fn password_check(
                             passwords,
                             send_password_found,
                             stop_workers_signal,
-                            send_progress_info,
+                            tested_count,
                         )
                     }
                     #[cfg(feature = "pdf")]
@@ -95,7 +100,7 @@ pub fn password_check(
                             passwords,
                             send_password_found,
                             stop_workers_signal,
-                            send_progress_info,
+                            tested_count,
                         )
                     }
                     _ => {

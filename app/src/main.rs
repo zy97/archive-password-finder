@@ -4,7 +4,6 @@ mod ui;
 
 use app::App;
 use eframe::{egui, Result};
-
 fn main() -> Result<()> {
     let options = eframe::NativeOptions {
         resizable: false,
@@ -15,8 +14,8 @@ fn main() -> Result<()> {
     eframe::run_native(
         "爆破",
         options,
-        Box::new(|_cc| {
-            let app = App::new(_cc);
+        Box::new(|cc| {
+            let app = App::new(cc);
             Box::new(app)
         }),
     )
@@ -27,13 +26,7 @@ pub enum Mode {
     Generation,
     Custom,
 }
-#[derive(PartialEq)]
-enum Charset {
-    Lower,
-    Upper,
-    Digital,
-    Special,
-}
+
 pub trait View {
     fn ui(&mut self, ui: &mut egui::Ui);
 }

@@ -1,11 +1,14 @@
 use std::{
     path::Path,
-    sync::mpsc::{channel, Receiver},
+    sync::{
+        mpsc::{channel, Receiver},
+        Arc,
+    },
     thread,
 };
 
 use eframe::egui::{self};
-use password_crack::{get_password_count, password_finder, CharsetChoice, Strategy};
+use password_crack::{CharsetChoice, Cracker, Strategy};
 use time::OffsetDateTime;
 
 use crate::{font::setup_custom_fonts, ui::progress_bar, Mode};
@@ -23,13 +26,13 @@ pub struct App {
     strategy: Option<Strategy>,
     running: bool,
     pub find_result: Option<Option<String>>,
-    progress_receiver: Option<Receiver<u64>>,
     password_receiver: Option<Receiver<Option<Option<String>>>>,
     pub start_time: Option<OffsetDateTime>,
     pub current_time: Option<OffsetDateTime>,
     pub min_pasword_length: usize, // timer:time
     pub max_pasword_length: usize,
     pub custom_charsets: String,
+    pub crack: Option<Cracker>,
 }
 impl App {
     fn reset(self: &mut Self) {
@@ -120,53 +123,50 @@ impl eframe::App for App {
                         self.running = true;
                         let file = self.file_path.clone();
                         let strategy = self.strategy.clone();
-                        let strategy1 = self.strategy.clone();
-                        let (send_progress_info, receive_progress_info) = channel();
                         let (send_password_find, receive_password_find) = channel();
-                        self.progress_receiver = Some(receive_progress_info);
                         self.password_receiver = Some(receive_password_find);
-                        self.password_count = get_password_count(&strategy1.unwrap())
-                            .map_err(|e| format!("获取密码总数失败：{}", e));
+
                         let work_count = self.workers_count;
                         self.reset();
-                        thread::spawn(move || {
-                            match password_finder(
-                                &file.unwrap(),
-                                work_count,
-                                strategy.unwrap(),
-                                send_progress_info,
-                            ) {
-                                Ok(Some(password)) => {
-                                    println!("password: {}", password);
-                                    send_password_find.send(Some(Some(password))).unwrap();
-                                }
-                                Ok(None) => {
-                                    send_password_find.send(Some(None)).unwrap();
-                                }
-                                Err(e) => {
-                                    println!("err: {:?}", e);
-                                    send_password_find.send(None).unwrap();
-                                }
+                        let crack = Cracker::new(file.unwrap(), work_count, strategy.unwrap());
+
+                        self.password_count = crack
+                            .count()
+                            .map_err(|e| format!("获取密码总数失败：{}", e));
+                        self.crack = Some(crack.clone());
+                        let crack1 = Arc::new(crack);
+                        thread::spawn(move || match crack1.start() {
+                            Ok(Some(password)) => {
+                                println!("password: {}", password);
+                                send_password_find.send(Some(Some(password))).unwrap();
+                            }
+                            Ok(None) => {
+                                send_password_find.send(Some(None)).unwrap();
+                            }
+                            Err(e) => {
+                                println!("err: {:?}", e);
+                                send_password_find.send(None).unwrap();
                             }
                         });
                     }
                 });
 
                 progress_bar(self, ui);
-                if self.progress_receiver.is_some() {
-                    if let Ok(r) = self.progress_receiver.as_ref().unwrap().try_recv() {
-                        self.current_time = Some(OffsetDateTime::now_utc());
-                        self.tested_count += r as usize;
-                        self.progress = self.tested_count as f32
-                            / *self.password_count.as_ref().unwrap() as f32;
-                    }
-                }
+
                 if self.password_receiver.is_some() {
                     if let Ok(r) = self.password_receiver.as_ref().unwrap().try_recv() {
                         self.find_result = r;
                         self.running = false;
-                        self.progress_receiver = None;
                     }
+                }
+                if self.crack.is_some() {
+                    if self.running {
+                        self.current_time = Some(OffsetDateTime::now_utc());
+                    }
+                    self.tested_count = self.crack.as_ref().unwrap().tested_count() as usize;
+
+                    self.progress =
+                        self.tested_count as f32 / *self.password_count.as_ref().unwrap() as f32;
                 }
             });
         });
@@ -175,7 +175,6 @@ impl eframe::App for App {
 impl App {
     pub fn new(cc: &eframe::CreationContext) -> Self {
         setup_custom_fonts(&cc.egui_ctx);
-
         Self {
             mode: Mode::PasswordDictionary,
             dictionary_path: None,
@@ -192,7 +191,6 @@ impl App {
             running: false,
             find_result: None,
             tested_count: 0,
-            progress_receiver: None,
             password_receiver: None,
             start_time: None,
             current_time: None,
@@ -200,6 +198,7 @@ impl App {
             min_pasword_length: 1,
             max_pasword_length: 8,
             custom_charsets: String::new(),
+            crack: None,
         }
     }
 }

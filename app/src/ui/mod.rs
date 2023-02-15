@@ -3,8 +3,6 @@ use eframe::{
     emath::Align,
 };
 
-use password_crack::{get_password_count, Strategy};
-
 use crate::{app::App, Mode};
 
 pub fn file_selector(app: &mut App, ui: &mut Ui) {

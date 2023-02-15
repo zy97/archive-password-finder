@@ -1,6 +1,6 @@
 [workspace]
 members = ["password_crack", "app", "file-password-finder"]
-default-members = ["file-password-finder"]
+default-members = ["app"]
 
 # [profile.release]
 # opt-level = 'z'
