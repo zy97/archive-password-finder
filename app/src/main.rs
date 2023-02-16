@@ -1,9 +1,13 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+#![no_main]
 mod app;
 mod font;
 mod ui;
 
 use app::App;
 use eframe::{egui, Result};
+
+#[no_mangle]
 fn main() -> Result<()> {
     let options = eframe::NativeOptions {
         resizable: false,

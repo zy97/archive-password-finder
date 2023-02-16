@@ -1,3 +1,5 @@
+#![no_main]
+
 mod args;
 mod cli_error;
 
@@ -10,7 +12,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use std::{path::Path, process::exit};
-
+#[no_mangle]
 fn main() {
     let result = main_result();
     exit(match result {

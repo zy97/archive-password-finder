@@ -1,10 +1,13 @@
 [workspace]
 members = ["password_crack", "app", "file-password-finder"]
-default-members = ["app"]
+default-members = ["file-password-finder"]
 
-# [profile.release]
-# opt-level = 'z'
-# strip = true
-# lto = true
-# codegen-units = 1
-# panic = "abort"
+[profile.release]
+opt-level = 'z'
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev.package."*"]
+opt-level = 2

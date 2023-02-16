@@ -11,3 +11,4 @@ rfd = "0.11.0"
 password_crack = { path = "../password_crack" }
 time = { version = "0.3.17" }
 num_cpus = "1.15.0"
+
