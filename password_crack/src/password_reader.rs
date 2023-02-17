@@ -6,10 +6,6 @@ use std::{
 
 use crate::errors::Errors;
 
-pub struct PasswordReader {
-    reader: BufReader<File>,
-    line_buffer: String,
-}
 // pub fn password_reader_count(dictionary_path: &PathBuf) -> Result<usize, Errors> {
 //     let file = File::open(dictionary_path).expect("Unable to open file");
 //     let mut reader = BufReader::new(file);
@@ -54,7 +50,10 @@ pub fn password_reader_count(dictionary_path: &PathBuf) -> Result<usize, Errors>
     }
     Ok(line_count)
 }
-
+pub struct PasswordReader {
+    reader: BufReader<File>,
+    line_buffer: String,
+}
 impl PasswordReader {
     pub fn new(dictionary_path: &Path) -> Self {
         let file = File::open(dictionary_path).expect("Unable to open file");
@@ -65,7 +64,6 @@ impl PasswordReader {
         }
     }
 }
-
 impl Iterator for PasswordReader {
     type Item = String;
 
@@ -87,21 +85,5 @@ impl Iterator for PasswordReader {
                 Err(_) => continue,
             }
         }
-    }
-}
-#[cfg(test)]
-mod tests {
-    use std::{path::PathBuf, time::Instant};
-
-    use crate::password_reader::password_reader_count;
-
-    #[test]
-    fn test1() {
-        let path =
-            PathBuf::from(r"C:\repo\archive-password-finder\xato-net-10-million-passwords.txt");
-
-        let now = Instant::now();
-        let count = password_reader_count(&path).unwrap();
-        println!("{:<10}ms,{}", now.elapsed().as_millis(), count);
     }
 }
