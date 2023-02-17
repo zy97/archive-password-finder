@@ -15,10 +15,11 @@ mod zip;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-pub use charsets::CharsetChoice;
+pub use charsets::{charset_lowercase_letters, CharsetChoice};
 pub use errors::Errors;
 pub use password_finder::Strategy;
 use password_finder::{get_password_count, password_finder};
+pub use password_gen::PasswordGenerator;
 
 type Passwords = Box<dyn Iterator<Item = String> + Send>;
 fn filter_for_worker_index(

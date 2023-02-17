@@ -1,3 +1,5 @@
+use std::{collections::HashMap, iter::repeat};
+
 use ahash::AHashMap;
 
 use crate::Errors;
@@ -116,7 +118,6 @@ impl PasswordGenerator {
         let charset_len = charset.len();
         let charset_first = *charset.first().expect("charset non empty");
         let charset_last = *charset.last().expect("charset non empty");
-
         // pre-compute charset indices
         let charset_indices = charset
             .iter()
@@ -146,19 +147,166 @@ impl PasswordGenerator {
         }
     }
 }
+
+pub struct PermutationsGenerator {
+    chars: Vec<char>,
+    min_length: usize,
+    max_length: usize,
+    current: Option<String>,
+    next_length: usize,
+    indices: Vec<usize>,
+}
+
+impl PermutationsGenerator {
+    pub fn new(chars: Vec<char>, min_length: usize, max_length: usize) -> Self {
+        PermutationsGenerator {
+            chars,
+            min_length,
+            max_length,
+            current: None,
+            next_length: min_length,
+            indices: vec![0; max_length],
+        }
+    }
+
+    fn generate_next(&mut self) -> Option<String> {
+        let n = self.chars.len();
+        let length = self.next_length;
+        let mut s = String::with_capacity(length);
+        for i in 0..length {
+            s.push(self.chars[self.indices[i]]);
+        }
+        self.current = Some(s);
+
+        let mut i = length - 1;
+        while i > 0 && self.indices[i] == n - 1 {
+            self.indices[i] = 0;
+            i -= 1;
+        }
+        if self.indices[i] == n - 1 {
+            if length == self.max_length {
+                return None;
+            }
+            self.next_length += 1;
+            self.indices[0] = 0;
+            self.generate_next()
+        } else {
+            self.indices[i] += 1;
+            Some(self.current.as_ref().unwrap().clone())
+        }
+    }
+}
+
+impl Iterator for PermutationsGenerator {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current.is_none() {
+            if self.next_length > self.max_length {
+                return None;
+            }
+            self.generate_next()
+        } else {
+            let result = self.current.clone();
+            self.generate_next();
+            result
+        }
+    }
+}
+
 #[cfg(test)]
 
 mod test {
+
+    use crate::password_gen::PermutationsGenerator;
+
     use super::PasswordGenerator;
+    use std::fmt::Write;
+    use std::time::Instant;
 
     #[test]
     fn tsd() {
-        let sdf =
-            PasswordGenerator::new(vec!['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], 8, 8);
-        for s in sdf {
-            if s == "99881122" {
-                println!("666")
+        let chars = vec!['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+        // let chars = vec!['0', '1', '2'];
+        let min = 1;
+        let max = 1;
+        let now = Instant::now();
+        let password_generator = PasswordGenerator::new(chars.clone(), min, max);
+        let count = password_generator.count();
+        println!("{:<10}ms,{}", now.elapsed().as_millis(), count);
+
+        let now = Instant::now();
+        let vec2 = generate_permutations(&chars, min, max);
+        println!("{:<10}ms,{}", now.elapsed().as_millis(), vec2.len());
+
+        let now = Instant::now();
+        let vec3 = generate_permutations1(&chars, min, max);
+        println!("{:<10}ms,{}", now.elapsed().as_millis(), vec3.len());
+
+        let now = Instant::now();
+        let p = PermutationsGenerator::new(chars.clone(), min, max);
+        let count = p.count();
+        println!("{}ms,{}", now.elapsed().as_millis(), count);
+    }
+    fn generate_permutations(chars: &[char], min_length: usize, max_length: usize) -> Vec<String> {
+        let mut passwords = vec![];
+        for length in min_length..=max_length {
+            let mut prefix = Vec::with_capacity(length);
+            generate_permutations_helper(chars, &mut prefix, length, &mut passwords);
+        }
+        passwords
+    }
+
+    fn generate_permutations_helper(
+        chars: &[char],
+        prefix: &mut Vec<char>,
+        length: usize,
+        password: &mut Vec<String>,
+    ) {
+        if length == 0 {
+            let mut s = String::with_capacity(prefix.len());
+            for c in prefix {
+                write!(&mut s, "{}", c).unwrap();
+            }
+            password.push(s);
+        } else {
+            for c in chars {
+                prefix.push(*c);
+                generate_permutations_helper(chars, prefix, length - 1, password);
+                prefix.pop();
             }
         }
+    }
+    fn generate_permutations1(chars: &[char], min_length: usize, max_length: usize) -> Vec<String> {
+        let mut passwords = vec![];
+        let n = chars.len();
+        for length in min_length..=max_length {
+            let mut indices: Vec<usize> = vec![0; length];
+            let mut s = String::with_capacity(length);
+            for i in 0..length {
+                s.push(chars[indices[i]]);
+            }
+            // println!("{}", s);
+            passwords.push(s);
+            loop {
+                let mut i = length - 1;
+                while i > 0 && indices[i] == n - 1 {
+                    indices[i] = 0;
+                    i -= 1;
+                }
+                if indices[i] == n - 1 {
+                    break;
+                }
+                indices[i] += 1;
+
+                let mut s = String::with_capacity(length);
+                for i in 0..length {
+                    s.push(chars[indices[i]]);
+                }
+                // println!("{}", s);
+                passwords.push(s);
+            }
+        }
+        passwords
     }
 }
